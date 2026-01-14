@@ -7,8 +7,12 @@ def erase_comments_in_dir(target_dir):
     print("--- Starting Comment Removal ---")
     
     count = 0
-    # Regex to find //, but NOT touching lines with --- (our markers)
-    comment_pattern = re.compile(r"//(?!\s---).*$", re.MULTILINE)
+    # Regex for multi-line comments (* *)
+    multi_line_pattern = re.compile(r"\(\*.*?\*\)", re.DOTALL)
+    
+    # Regex to find //, but NOT touching lines with markers
+    # We avoid // --- and // === IMPLEMENTATION ===
+    single_line_pattern = re.compile(r"//(?!\s*---)(?!\s*=== IMPLEMENTATION ===).*$", re.MULTILINE)
 
     for root, dirs, files in os.walk(target_dir):
         for filename in files:
@@ -21,8 +25,10 @@ def erase_comments_in_dir(target_dir):
                 with codecs.open(file_path, "r", "utf-8") as f:
                     content = f.read()
                 
-                # Remove comments
-                new_content = comment_pattern.sub("", content)
+                # Remove multi-line comments first
+                new_content = multi_line_pattern.sub("", content)
+                # Remove single-line comments
+                new_content = single_line_pattern.sub("", new_content)
                 
                 # Remove trailing whitespace from lines
                 lines = [line.rstrip() for line in new_content.splitlines()]

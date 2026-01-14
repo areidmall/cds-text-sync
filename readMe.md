@@ -53,7 +53,11 @@ Reads the `.st` files in your sync directory and updates the CODESYS project.
 - **Warning**: This will overwrite the code in your open CODESYS project. Always have a backup!
 
 ### 4. `Project_erase_comments.py`
-A utility script that removes all single-line comments (`//`) from the files in your sync directory. Useful for reducing token count when sharing code with LLMs or for "cleaning" a project.
+A utility script that removes comments from the files in your sync directory.
+- Removes single-line comments (`//`).
+- Removes multi-line comments (`(* ... *)`).
+- **Preserves Critical Markers**: It will NOT erase markers like `// ---` or `// === IMPLEMENTATION ===`.
+- Useful for reducing token count when sharing code with LLMs or for "cleaning" a project.
 
 ---
 
@@ -73,7 +77,7 @@ A utility script that removes all single-line comments (`//`) from the files in 
 
 - **Metadata**: Never manually edit or delete `_metadata.json`. It is the link between the files and the CODESYS internal GUIDs.
 - **Backups**: Always save a `.project` backup before running an import.
-- **Markers**: The scripts use specific markers like `// === IMPLEMENTATION ===` to separate declarations from code. Do not remove these markers!
+- **Markers**: The scripts use specific markers like `// ---` and `// === IMPLEMENTATION ===` to separate declarations from code. These are **preserved** by the comment eraser and should never be removed manually!
 - **Creating New Blocks**: The Best workflow is to **create the block name in CODESYS IDE first**, export it, and then fill the content externally. Creating files manually in the folder system will trigger a warning during import because they lack metadata.
 
 ---
