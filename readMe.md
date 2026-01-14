@@ -7,6 +7,8 @@
 
 This repository contains a set of Python scripts for **CODESYS** that enable a reversible, text-based workflow for project development. It allows you to export your CODESYS project code to a structured folder system, edit it using modern tools (like VS Code or LLMs), and import the changes back into CODESYS.
 
+![Workflow Preview](img/WorkflowPreview.gif)
+
 ## 🚀 Key Features
 
 - **Reversible Sync**: Round-trip export and import of POUs, GVLs, and DUTs.
