@@ -49,54 +49,68 @@ def parse_st_file(file_path):
     return declaration, implementation
 
 
-def find_object_by_guid(guid):
-    """Find a CODESYS object by its GUID"""
-    if not projects.primary:
-        return None
+def build_object_cache():
+    """Builds lookup caches for project objects"""
+    print("Building object cache...")
     
-    all_objects = projects.primary.get_children(recursive=True)
+    guid_map = {}
+    name_map = {}
+    
+    if not projects.primary:
+        return guid_map, name_map
+
+    try:
+        all_objects = projects.primary.get_children(recursive=True)
+    except:
+        return guid_map, name_map
+    
     for obj in all_objects:
         try:
-            if safe_str(obj.guid) == guid:
-                return obj
+            # GUID Cache
+            g = safe_str(obj.guid)
+            if g != "N/A":
+                guid_map[g] = obj
+            
+            # Name Cache
+            n = safe_str(obj.get_name())
+            if n not in name_map:
+                name_map[n] = []
+            name_map[n].append(obj)
         except:
             continue
-    
-    return None
+            
+    return guid_map, name_map
 
 
-def find_object_by_name(name, parent_name=None):
+def find_object_by_guid(guid, guid_map):
+    """Find a CODESYS object by its GUID using cache"""
+    return guid_map.get(guid)
+
+
+def find_object_by_name(name, name_map, parent_name=None):
     """
-    Find a CODESYS object by name with optional parent filtering.
+    Find a CODESYS object by name using cache.
     Returns first match or None.
     """
-    if not projects.primary:
+    found = name_map.get(name)
+    if not found:
         return None
     
-    try:
-        found = projects.primary.find(name, recursive=True)
-        if not found:
-            return None
-        
-        if len(found) == 1:
-            return found[0]
-        
-        # Multiple matches - filter by parent if provided
-        if parent_name:
-            for obj in found:
-                try:
-                    if hasattr(obj, "parent") and obj.parent:
-                        if obj.parent.get_name() == parent_name:
-                            return obj
-                except:
-                    continue
-        
-        # Return first match if no parent filter or no parent match
+    if len(found) == 1:
         return found[0]
-        
-    except Exception as e:
-        print("Error searching for object '" + name + "': " + safe_str(e))
-        return None
+    
+    # Multiple matches - filter by parent if provided
+    if parent_name:
+        for obj in found:
+            try:
+                if hasattr(obj, "parent") and obj.parent:
+                    if obj.parent.get_name() == parent_name:
+                        return obj
+            except:
+                continue
+    
+    # Return first match if no parent filter or no parent match
+    return found[0]
 
 
 def update_object_code(obj, declaration, implementation):
@@ -159,6 +173,9 @@ def import_project(import_dir):
     objects_meta = metadata.get("objects", {})
     print("Found " + str(len(objects_meta)) + " objects in metadata")
     
+    # Build cache for fast lookup
+    guid_map, name_map = build_object_cache()
+    
     untracked_items = []
     
     # Build a set of folders that ARE tracked (as parents of known objects)
@@ -208,11 +225,11 @@ def import_project(import_dir):
         # Find object - prefer GUID matching
         obj = None
         if obj_guid and obj_guid != "N/A":
-            obj = find_object_by_guid(obj_guid)
+            obj = find_object_by_guid(obj_guid, guid_map)
         
         # Fallback to name matching
         if obj is None and obj_name:
-            obj = find_object_by_name(obj_name, parent_name)
+            obj = find_object_by_name(obj_name, name_map, parent_name)
         
         if obj is None:
             print("  Failed: Object not found in project")
