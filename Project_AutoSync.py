@@ -5,12 +5,23 @@ Project_AutoSync.py - Auto-synchronize external file changes to CODESYS
 Monitors exported .st files for changes and automatically updates the corresponding
 CODESYS objects. Runs in the background without blocking the IDE.
 
+Features:
+- One-way sync: Folder → IDE only
+- State stored in _metadata.json (autosync: RUNNING/STOPPED)
+- Configurable timeout via sync_timeout in metadata (default: 10000ms)
+- Dynamic timeout updates: Changes apply immediately on next cycle
+- Safety checks every cycle:
+  * Metadata file exists
+  * Project name matches (prevents syncing to wrong project)
+  * Sync status is RUNNING
+
 Workflow:
 1. Create new blocks in CODESYS IDE
 2. Run Project_export.py to export them
 3. Run Project_AutoSync.py to start monitoring
 4. Edit .st files in external editor (VS Code, etc.)
 5. Changes automatically sync to CODESYS
+6. Run Project_AutoSync.py again to stop
 
 Usage: 
 - Run once to START synchronization

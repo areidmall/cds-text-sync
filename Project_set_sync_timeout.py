@@ -4,7 +4,12 @@ Project_set_sync_timeout.py - Configure AutoSync timeout interval
 
 Sets the sync_timeout parameter in _metadata.json for Project_AutoSync.py
 
-Usage: Run this script and enter the desired timeout in milliseconds
+Features:
+- Predefined timeout options (2s, 5s, 10s, 15s, 30s)
+- Changes apply immediately if AutoSync is running (no restart needed)
+- Updates sync_timeout field in metadata with consistent field order
+
+Usage: Run this script and select the desired timeout from the menu
 """
 import os
 import codecs

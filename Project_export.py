@@ -4,7 +4,12 @@ Project_export.py - Export CODESYS project to git-friendly folder structure
 
 Exports all textual objects (POUs, GVLs, DUTs) to .st files organized in
 folders matching the CODESYS project hierarchy. Creates a single _metadata.json
-file containing GUID mappings for reliable import.
+file containing GUID mappings, sync settings, and project info for reliable import.
+
+Features:
+- Project identity check: Warns if exporting to a directory with different project
+- Initializes autosync and sync_timeout fields for Project_AutoSync.py
+- Preserves consistent field order in metadata JSON
 
 Usage: Run from CODESYS IDE after setting BASE_DIR with Project_directory.py
 """
