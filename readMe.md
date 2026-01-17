@@ -1,6 +1,15 @@
 # cds-text-sync
 
-**Version**: `0.9.0` (Beta)
+**Version**: `0.9.1-beta`
+
+> [!WARNING]
+> **⚠️ BETA SOFTWARE - USE WITH CAUTION ⚠️**
+>
+> This product is **NOT YET RELEASED** and is currently in active development.
+> - Features may be incomplete or unstable
+> - Breaking changes may occur without notice
+> - **ALWAYS backup your CODESYS project before using these scripts**
+> - Test thoroughly in non-production environments first
 
 > [!IMPORTANT]
 > **Disclaimer**: This is a third-party tool. It is NOT an official product of CODESYS Group and is not affiliated with, sponsored by, or endorsed by CODESYS Group. This tool is provided "as is" and is not a replacement for official CODESYS products (such as CODESYS Git).
@@ -59,6 +68,15 @@ A utility script that removes comments from the files in your sync directory.
 - **Preserves Critical Markers**: It will NOT erase markers like `// ---` or `// === IMPLEMENTATION ===`.
 - Useful for reducing token count when sharing code with LLMs or for "cleaning" a project.
 
+### 5. `Project_AutoSync.py` ⚠️ **EXPERIMENTAL**
+Automatically monitors your exported `.st` files and syncs changes back to CODESYS in real-time.
+- **One-way sync**: Folder → IDE only (external edits update CODESYS)
+- Runs in the background without blocking the IDE
+- Configurable check interval via `TIMEOUT_MS` file (default: 2000ms)
+- **Usage**: Run once to START, run again to STOP
+- **Workflow**: Create blocks in IDE → Export → Start AutoSync → Edit files externally
+- **⚠️ CAUTION**: This is an experimental feature. Monitor the CODESYS Messages view for sync status.
+
 ---
 
 ## 🔄 Recommended Workflow
@@ -75,10 +93,12 @@ A utility script that removes comments from the files in your sync directory.
 
 ## ⚠️ Important Notes
 
+- **⚠️ BETA STATUS**: This software is in active development. **Always backup your project** before using any script.
 - **Metadata**: Never manually edit or delete `_metadata.json`. It is the link between the files and the CODESYS internal GUIDs.
 - **Backups**: Always save a `.project` backup before running an import.
 - **Markers**: The scripts use specific markers like `// ---` and `// === IMPLEMENTATION ===` to separate declarations from code. These are **preserved** by the comment eraser and should never be removed manually!
-- **Creating New Blocks**: The Best workflow is to **create the block name in CODESYS IDE first**, export it, and then fill the content externally. Creating files manually in the folder system will trigger a warning during import because they lack metadata.
+- **Creating New Blocks**: The best workflow is to **create the block name in CODESYS IDE first**, export it, and then fill the content externally. Creating files manually in the folder system will trigger a warning during import because they lack metadata.
+- **AutoSync Experimental**: The `Project_AutoSync.py` script is experimental. If you experience issues, stop the sync and use manual export/import workflow instead.
 
 ---
 

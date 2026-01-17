@@ -165,9 +165,12 @@ def export_project(export_dir):
     print("Export directory: " + export_dir)
     
     # Metadata structure
+    current_project_name = safe_str(projects.primary)
     metadata = {
-        "project_name": safe_str(projects.primary),
-        "export_timestamp": "",  # CODESYS may not have datetime, leave empty
+        "project_name": current_project_name,
+        "export_timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+        "autosync": "STOPPED",
+        "sync_timeout": 10000,
         "objects": {}
     }
     
@@ -176,6 +179,30 @@ def export_project(export_dir):
             metadata["project_path"] = safe_str(projects.primary.path)
     except:
         pass
+    
+    # Check if metadata already exists with different project
+    metadata_path = os.path.join(export_dir, "_metadata.json")
+    if os.path.exists(metadata_path):
+        try:
+            with codecs.open(metadata_path, "r", "utf-8") as f:
+                existing_metadata = json.load(f)
+            
+            existing_project = existing_metadata.get("project_name", "")
+            if existing_project and existing_project != current_project_name:
+                message = "WARNING: This directory contains exports from a different project!\n\n"
+                message += "Current project: " + current_project_name + "\n"
+                message += "Existing exports: " + existing_project + "\n\n"
+                message += "Exporting will OVERWRITE the existing files.\n\n"
+                message += "Are you sure you want to proceed?"
+                
+                result = system.ui.choose(message, ("Yes, Overwrite", "No, Cancel"))
+                
+                if result[0] != 0:
+                    print("Export cancelled by user - project mismatch")
+                    return
+        except:
+            # If we can't read existing metadata, continue with export
+            pass
     
     # Get all objects recursively
     all_objects = projects.primary.get_children(recursive=True)
@@ -264,11 +291,30 @@ def export_project(export_dir):
         except Exception as e:
             print("Error exporting " + safe_str(obj) + ": " + safe_str(e))
     
-    # Write metadata file
+    # Write metadata file with consistent field order
     metadata_path = os.path.join(export_dir, "_metadata.json")
     try:
+        # Reconstruct with desired field order
+        ordered_metadata = {}
+        
+        # Configuration fields first
+        if "project_name" in metadata:
+            ordered_metadata["project_name"] = metadata["project_name"]
+        if "project_path" in metadata:
+            ordered_metadata["project_path"] = metadata["project_path"]
+        if "export_timestamp" in metadata:
+            ordered_metadata["export_timestamp"] = metadata["export_timestamp"]
+        if "autosync" in metadata:
+            ordered_metadata["autosync"] = metadata["autosync"]
+        if "sync_timeout" in metadata:
+            ordered_metadata["sync_timeout"] = metadata["sync_timeout"]
+        
+        # Objects last
+        if "objects" in metadata:
+            ordered_metadata["objects"] = metadata["objects"]
+        
         with codecs.open(metadata_path, "w", "utf-8") as f:
-            json.dump(metadata, f, indent=2, ensure_ascii=False)
+            json.dump(ordered_metadata, f, indent=2, ensure_ascii=False)
         print("Created: _metadata.json")
     except Exception as e:
         print("Error writing metadata: " + safe_str(e))
