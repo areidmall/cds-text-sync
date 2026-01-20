@@ -30,6 +30,8 @@ This repository contains a set of Python scripts for **CODESYS** that facilitate
 
 ![Workflow Preview](img\import_new_block.gif)
 
+---
+
 ![Import new files](img\import_new_block.gif)
 
 ## 🚀 Key Features
