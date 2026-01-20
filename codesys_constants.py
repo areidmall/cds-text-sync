@@ -22,6 +22,30 @@ TYPE_GUIDS = {
     "library_manager": "adb5cb65-8e1d-4a00-b70a-375ea27582f3", # Library Manager
     "task_config": "ae1de277-a207-4a28-9efb-456c06bd52f3",   # Task Configuration
     "task": "98a2708a-9b18-4f31-82ed-a1465b24fa2d",          # Task
+    "itf": "54ce33d2-c430-4eb6-a66f-1f0624d7705b",           # Interface
+    "nvl_sender": "ffb96994-3252-4467-8507-6a1883584989",    # Network Variable List (Sender)
+    "nvl_receiver": "ea9e7828-b80c-4ec7-9f68-52210f019623",  # Network Variable List (Receiver)
+    "param_list": "f89f7675-27f3-455b-b98a-243e8673a5a8",    # Parameter List
+    "persistent_gvl": "3183921b-cc91-4712-9781-c3b6555122b5",# Persistent GVL
+    "recipe_manager": "47225134-2e90-48e0-a42e-9ed7cf91c010",# Recipe Manager
+    "recipe": "3e9a7218-1e43-4f9e-a0e2-656f4d36e8b4",         # Recipe
+    "visu": "f18bec89-9fef-401d-9953-2f11739a6808",           # Visualization
+    "textlist": "2bef0454-1bd3-412a-ac2c-af0f31dbc40f",      # Text List (updated from discovery)
+    "global_text_list": "63784cbb-9ba0-45e6-9d69-babf3f040511", # Global Text List
+    "imagepool": "6507a8fd-035f-464a-bd5b-7f15e8ac084a",     # Image Pool
+    "visu_manager": "4d3fdb8f-ab50-4c35-9d3a-d4bb9bb9a628",  # Visualization Manager
+    "web_visu": "0fdbf158-1ae0-47d9-9269-cd84be308e9d",      # WebVisu
+    "alarm_config": "c0a56ce5-14a3-4757-ac56-3eab44c974b3",  # Alarm Configuration
+    "alarm_group": "413e2a7d-adb1-4d2c-be29-6ae6e4fab820",   # Alarm Group/Object
+    "symbol_config": "21d4fe94-4123-4e23-9091-ead220afbd1f", # Symbol Configuration
+    "image": "9001d745-b9c5-4d77-90b7-b29c3f77a23b",         # Image entry in ImagePool
+    "alarm_storage": "5bd56248-46fc-4108-be33-ed01ad87d070", # Alarm Storage
+    "trace": "f7aa3620-8073-4c91-b6ec-86ed9eb60303",         # Trace
+    "project_info": "085afe48-c5d8-4ea5-ab0d-b35701fa6009",  # Project Information
+    "type_f18": "f18bec89-9fef-401d-9953-2f11739a6808",      # Unknown (Visualization?)
+    "type_21f": "21f4ed1d-ec95-4666-820e-4abf64d93d6b",      # Unknown (Infeed/ER related)
+    "type_085": "085766fd-043e-4545-8e8d-d651d56d5d3b",      # Unknown (Hardware/PM_E)
+    "unit_conversion": "3662d04a-384c-4734-9189-9e8756910793", # Unit Conversion
 }
 
 # Types that contain exportable ST code
@@ -29,10 +53,45 @@ EXPORTABLE_TYPES = [
     TYPE_GUIDS["pou"],
     TYPE_GUIDS["gvl"],
     TYPE_GUIDS["dut"],
+    TYPE_GUIDS["itf"],
+    TYPE_GUIDS["nvl_sender"],
+    TYPE_GUIDS["nvl_receiver"],
+    TYPE_GUIDS["param_list"],
+    TYPE_GUIDS["textlist"],
+    TYPE_GUIDS["global_text_list"],
+    TYPE_GUIDS["symbol_config"],
+    TYPE_GUIDS["imagepool"],
+    TYPE_GUIDS["unit_conversion"],
+    TYPE_GUIDS["visu"],            # Authorization for Visualization export
+    TYPE_GUIDS["visu_manager"],
+    TYPE_GUIDS["web_visu"],
+    TYPE_GUIDS["alarm_config"],
+    TYPE_GUIDS["alarm_group"],
+    TYPE_GUIDS["alarm_storage"],
+    TYPE_GUIDS["task_config"],
+    TYPE_GUIDS["task"],
+    TYPE_GUIDS["library_manager"],
     TYPE_GUIDS["action"],
     TYPE_GUIDS["method"],
     TYPE_GUIDS["property"],
     TYPE_GUIDS["property_accessor"],
+]
+
+# Types that should be exported as native XML
+XML_TYPES = [
+    TYPE_GUIDS["visu"],
+    TYPE_GUIDS["textlist"],
+    TYPE_GUIDS["global_text_list"],
+    TYPE_GUIDS["imagepool"],
+    TYPE_GUIDS["symbol_config"],
+    TYPE_GUIDS["alarm_config"],
+    TYPE_GUIDS["alarm_group"],
+    TYPE_GUIDS["alarm_storage"],
+    TYPE_GUIDS["web_visu"],
+    TYPE_GUIDS["visu_manager"],
+    TYPE_GUIDS["task_config"],
+    TYPE_GUIDS["task"],
+    TYPE_GUIDS["library_manager"],
 ]
 
 # Implementation section marker used in ST files

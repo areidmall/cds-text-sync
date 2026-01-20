@@ -17,7 +17,7 @@ import os
 import codecs
 import json
 import time
-from codesys_constants import TYPE_GUIDS, EXPORTABLE_TYPES, IMPL_MARKER
+from codesys_constants import TYPE_GUIDS, EXPORTABLE_TYPES, IMPL_MARKER, XML_TYPES
 from codesys_utils import safe_str, clean_filename, load_base_dir, save_metadata
 
 # Shared constants and utilities imported from modules
@@ -60,11 +60,11 @@ def get_object_path(obj, stop_at_application=True):
 
 
 def get_parent_pou_name(obj):
-    """Get parent POU name for nested objects (actions, methods, properties)"""
+    """Get parent POU/Interface name for nested objects (actions, methods, properties)"""
     try:
         if hasattr(obj, "parent") and obj.parent:
             parent_type = safe_str(obj.parent.type)
-            if parent_type == TYPE_GUIDS["pou"]:
+            if parent_type in [TYPE_GUIDS["pou"], TYPE_GUIDS["itf"]]:
                 return obj.parent.get_name()
     except:
         pass
@@ -111,6 +111,24 @@ def format_st_content(declaration, implementation, obj_type_guid):
         content.append(implementation)
     
     return "\n".join(content)
+
+
+def export_native_xml(obj, file_path):
+    """Export object in native CODESYS format (XML)"""
+    # Delete existing file to avoid CODESYS overwrite prompts
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            print("Warning: Could not delete existing XML " + file_path)
+            
+    try:
+        # Visualizations and other non-IEC objects must be exported using native format
+        projects.primary.export_native([obj], file_path, recursive=True)
+        return True
+    except Exception as e:
+        print("Error exporting Native XML for " + safe_str(obj.get_name()) + ": " + safe_str(e))
+        return False
 
 
 def export_project(export_dir):
@@ -185,6 +203,9 @@ def export_project(export_dir):
             if obj_type not in EXPORTABLE_TYPES:
                 continue
             
+            # Check if object is XML type
+            is_xml = obj_type in XML_TYPES
+
             # Check if object has any textual content
             has_content = False
             try:
@@ -195,7 +216,8 @@ def export_project(export_dir):
             except:
                 pass
             
-            if not has_content:
+            # Allow export if it has content OR is an XML type
+            if not has_content and not is_xml:
                 skipped_count += 1
                 continue
             
@@ -212,6 +234,10 @@ def export_project(export_dir):
                 # Remove parent POU from path since it's in filename
                 if path_parts and path_parts[-1] == parent_pou:
                     path_parts = path_parts[:-1]
+                if path_parts and path_parts[-1] == parent_pou:
+                    path_parts = path_parts[:-1]
+            elif is_xml:
+                file_name = clean_name + ".xml"
             else:
                 file_name = clean_name + ".st"
             
@@ -220,18 +246,25 @@ def export_project(export_dir):
             if not os.path.exists(target_dir):
                 os.makedirs(target_dir)
             
-            # Get content
-            declaration, implementation = export_object_content(obj)
-            content = format_st_content(declaration, implementation, obj_type)
-            
-            if not content.strip():
-                skipped_count += 1
-                continue
-            
-            # Write ST file
+            # Write content (ST or XML)
             file_path = os.path.join(target_dir, file_name)
-            with codecs.open(file_path, "w", "utf-8") as f:
-                f.write(content)
+            
+            if is_xml:
+                if not export_native_xml(obj, file_path):
+                    print("Failed to export XML: " + file_name)
+                    skipped_count += 1
+                    continue
+            else:
+                # Textual export
+                declaration, implementation = export_object_content(obj)
+                content = format_st_content(declaration, implementation, obj_type)
+                
+                if not content.strip():
+                    skipped_count += 1
+                    continue
+                    
+                with codecs.open(file_path, "w", "utf-8") as f:
+                    f.write(content)
             
             # Build relative path for metadata
             if path_parts:
