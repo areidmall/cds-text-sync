@@ -46,6 +46,8 @@ TYPE_GUIDS = {
     "type_21f": "21f4ed1d-ec95-4666-820e-4abf64d93d6b",      # Unknown (Infeed/ER related)
     "type_085": "085766fd-043e-4545-8e8d-d651d56d5d3b",      # Unknown (Hardware/PM_E)
     "unit_conversion": "3662d04a-384c-4734-9189-9e8756910793", # Unit Conversion
+    "softmotion_pool": "e9159722-55bc-49e5-8034-fbd278ef718f", # SoftMotion Axis Pool
+    "visu_style": "8e687a04-7ca7-42d3-be06-fcbda676c5ef",    # Visualization Style
 }
 
 # Types that contain exportable ST code
@@ -71,6 +73,11 @@ EXPORTABLE_TYPES = [
     TYPE_GUIDS["task_config"],
     TYPE_GUIDS["task"],
     TYPE_GUIDS["library_manager"],
+    TYPE_GUIDS["project_info"],
+    TYPE_GUIDS["trace"],
+    TYPE_GUIDS["softmotion_pool"],
+    TYPE_GUIDS["visu_style"],
+    TYPE_GUIDS["type_21f"],        # Unknown type (46 count)
     TYPE_GUIDS["action"],
     TYPE_GUIDS["method"],
     TYPE_GUIDS["property"],
@@ -92,6 +99,11 @@ XML_TYPES = [
     TYPE_GUIDS["task_config"],
     TYPE_GUIDS["task"],
     TYPE_GUIDS["library_manager"],
+    TYPE_GUIDS["project_info"],
+    TYPE_GUIDS["trace"],
+    TYPE_GUIDS["softmotion_pool"],
+    TYPE_GUIDS["visu_style"],
+    TYPE_GUIDS["type_21f"],
 ]
 
 # Implementation section marker used in ST files
