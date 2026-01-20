@@ -1,6 +1,6 @@
 # cds-text-sync
 
-**Version**: `0.9.6-beta`
+**Version**: `0.9.7-beta`
 
 > [!WARNING]
 > **⚠️ BETA SOFTWARE - USE WITH CAUTION ⚠️**
@@ -136,6 +136,14 @@ Common utility functions used across all scripts.
 ---
 
 ## 📝 Changelog
+
+### Version 0.9.7-beta (2026-01-20)
+
+**New Features & Improvements:**
+- **Function Return Types**: The import script now intelligently parses `FUNCTION` declarations to determine return types (including custom DUTs) and creates them correctly.
+- **Property Accessors**: Added support for `Get.st` and `Set.st` files, ensuring they are correctly associated with their parent Properties.
+- **Robust Type Detection**: Improved parsing logic to ignore comments and pragmas when determining object types, fixing issues with file headers.
+- **Bug Fixes**: Resolved "Access Denied" errors by properly skipping directory checks in the file processing loop.
 
 ### Version 0.9.6-beta (2026-01-20)
 
