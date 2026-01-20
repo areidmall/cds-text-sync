@@ -459,20 +459,23 @@ def import_project(import_dir):
             # Determine the specific object type from content
             pou_type = None
             is_gvl = False
+            is_dut = False
             
             if type_guid == TYPE_GUIDS["gvl"]:
                 is_gvl = True
+            elif type_guid == TYPE_GUIDS["dut"]:
+                is_dut = True
             elif type_guid == TYPE_GUIDS["pou"]:
                 # Determine POU type from content
                 content_upper = content_check.upper()
                 if "PROGRAM " in content_upper:
-                    pou_type = "program"
+                    pou_type = PouType.Program
                 elif "FUNCTION_BLOCK " in content_upper or "FUNCTIONBLOCK " in content_upper:
-                    pou_type = "functionblock"
+                    pou_type = PouType.FunctionBlock
                 elif "FUNCTION " in content_upper:
-                    pou_type = "function"
+                    pou_type = PouType.Function
                 else:
-                    pou_type = "program"  # Default to program
+                    pou_type = PouType.Program  # Default to program
             
             # Get the Application object for creation
             app_obj = app_container  # Use the Application container we found at the start
@@ -488,7 +491,8 @@ def import_project(import_dir):
                             try:
                                 child_type = safe_str(child.type)
                                 if (is_gvl and child_type == TYPE_GUIDS["gvl"]) or \
-                                   (pou_type and child_type == TYPE_GUIDS["pou"]):
+                                   (is_dut and child_type == TYPE_GUIDS["dut"]) or \
+                                   (pou_type is not None and child_type == TYPE_GUIDS["pou"]):
                                     existing = child
                                     break
                             except:
@@ -507,8 +511,12 @@ def import_project(import_dir):
                         print("    Using create_gvl()")
                         obj = app_obj.create_gvl(obj_name)
                         created_count += 1
-                    elif pou_type:
-                        print("    Using create_pou() with type: " + pou_type)
+                    elif is_dut:
+                        print("    Using create_dut()")
+                        obj = app_obj.create_dut(obj_name)
+                        created_count += 1
+                    elif pou_type is not None:
+                        print("    Using create_pou() with type: " + str(pou_type))
                         obj = app_obj.create_pou(obj_name, pou_type)
                         created_count += 1
                     else:
