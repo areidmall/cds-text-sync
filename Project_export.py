@@ -17,51 +17,10 @@ import os
 import codecs
 import json
 import time
+from codesys_constants import TYPE_GUIDS, EXPORTABLE_TYPES, IMPL_MARKER
+from codesys_utils import safe_str, clean_filename, load_base_dir, save_metadata
 
-# Object type GUIDs for reference
-TYPE_GUIDS = {
-    "pou": "6f9dac99-8de1-4efc-8465-68ac443b7d08",           # PROGRAM, FUNCTION, FUNCTION_BLOCK
-    "gvl": "ffbfa93a-b94d-45fc-a329-229860183b1d",           # Global Variable List
-    "dut": "2db5746d-d284-4425-9f7f-2663a34b0ebc",           # Data Types (STRUCT, ENUM, etc.)
-    "action": "8ac092e5-3128-4e26-9e7e-11016c6684f2",        # Action
-    "method": "f8a58466-d7f6-439f-bbb8-d4600e41d099",        # Method
-    "property": "5a3b8626-d3e9-4f37-98b5-66420063d91e",      # Property
-    "property_accessor": "792f2eb6-721e-4e64-ba20-bc98351056db", # Property Get/Set
-    "folder": "738bea1e-99bb-4f04-90bb-a7a567e74e3a",        # Folder
-    "device": "225bfe47-7336-4dbc-9419-4105a7c831fa",        # Device
-    "plc_logic": "40b404f9-e5dc-42c6-907f-c89f4a517386",     # Plc Logic
-    "application": "639b491f-5557-464c-af91-1471bac9f549",   # Application
-    "library_manager": "adb5cb65-8e1d-4a00-b70a-375ea27582f3", # Library Manager
-    "task_config": "ae1de277-a207-4a28-9efb-456c06bd52f3",   # Task Configuration
-    "task": "98a2708a-9b18-4f31-82ed-a1465b24fa2d",          # Task
-}
-
-# Types that contain exportable ST code
-EXPORTABLE_TYPES = [
-    TYPE_GUIDS["pou"],
-    TYPE_GUIDS["gvl"],
-    TYPE_GUIDS["dut"],
-    TYPE_GUIDS["action"],
-    TYPE_GUIDS["method"],
-    TYPE_GUIDS["property"],
-    TYPE_GUIDS["property_accessor"],
-]
-
-def clean_filename(name):
-    """Clean filename from invalid characters"""
-    forbidden = ["<", ">", ":", "\"", "/", "\\", "|", "?", "*"]
-    clean_name = name
-    for char in forbidden:
-        clean_name = clean_name.replace(char, "_")
-    return clean_name
-
-
-def safe_str(value):
-    """Safely convert value to string"""
-    try:
-        return str(value)
-    except:
-        return "N/A"
+# Shared constants and utilities imported from modules
 
 
 def get_object_path(obj, stop_at_application=True):
@@ -297,32 +256,10 @@ def export_project(export_dir):
             print("Error exporting " + safe_str(obj) + ": " + safe_str(e))
     
     # Write metadata file with consistent field order
-    metadata_path = os.path.join(export_dir, "_metadata.json")
-    try:
-        # Reconstruct with desired field order
-        ordered_metadata = {}
-        
-        # Configuration fields first
-        if "project_name" in metadata:
-            ordered_metadata["project_name"] = metadata["project_name"]
-        if "project_path" in metadata:
-            ordered_metadata["project_path"] = metadata["project_path"]
-        if "export_timestamp" in metadata:
-            ordered_metadata["export_timestamp"] = metadata["export_timestamp"]
-        if "autosync" in metadata:
-            ordered_metadata["autosync"] = metadata["autosync"]
-        if "sync_timeout" in metadata:
-            ordered_metadata["sync_timeout"] = metadata["sync_timeout"]
-        
-        # Objects last
-        if "objects" in metadata:
-            ordered_metadata["objects"] = metadata["objects"]
-        
-        with codecs.open(metadata_path, "w", "utf-8") as f:
-            json.dump(ordered_metadata, f, indent=2, ensure_ascii=False)
+    if save_metadata(export_dir, metadata):
         print("Created: _metadata.json")
-    except Exception as e:
-        print("Error writing metadata: " + safe_str(e))
+    else:
+        print("Error writing metadata")
     
     print("=== Export Complete ===")
     elapsed_time = time.time() - start_time
@@ -335,13 +272,9 @@ def export_project(export_dir):
 
 
 def main():
-    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "BASE_DIR")
-    
-    if os.path.exists(config_path):
-        with open(config_path, "r") as f:
-            base_dir = f.read().strip()
-    else:
-        system.ui.warning("Base directory is not set! Please run 'Project_directory.py' first.")
+    base_dir, error = load_base_dir()
+    if error:
+        system.ui.warning(error)
         return
     
     export_project(base_dir)

@@ -14,40 +14,20 @@ Usage: Run this script and select the desired timeout from the menu
 import os
 import codecs
 import json
+from codesys_utils import safe_str, load_base_dir, load_metadata, save_metadata
 
-def safe_str(value):
-    """Safely convert value to string"""
-    try:
-        return str(value)
-    except:
-        return "N/A"
+# Shared utilities imported from modules
 
 def main():
-    # Load base directory
-    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "BASE_DIR")
-    
-    if not os.path.exists(config_path):
-        system.ui.warning("Base directory not set! Run 'Project_directory.py' first.")
-        return
-    
-    with open(config_path, "r") as f:
-        base_dir = f.read().strip()
-    
-    if not os.path.exists(base_dir):
-        system.ui.error("Base directory does not exist: " + base_dir)
+    base_dir, error = load_base_dir()
+    if error:
+        system.ui.warning(error)
         return
     
     # Load metadata
-    metadata_path = os.path.join(base_dir, "_metadata.json")
-    if not os.path.exists(metadata_path):
+    metadata = load_metadata(base_dir)
+    if not metadata:
         system.ui.error("_metadata.json not found! Run 'Project_export.py' first.")
-        return
-    
-    try:
-        with codecs.open(metadata_path, "r", "utf-8") as f:
-            metadata = json.load(f)
-    except Exception as e:
-        system.ui.error("Error reading metadata: " + safe_str(e))
         return
     
     # Get current timeout
@@ -87,14 +67,11 @@ def main():
     # Update metadata
     metadata["sync_timeout"] = new_timeout
     
-    try:
-        with codecs.open(metadata_path, "w", "utf-8") as f:
-            json.dump(metadata, f, indent=2, ensure_ascii=False)
-        
+    if save_metadata(base_dir, metadata):
         print("Sync timeout updated: " + str(new_timeout) + "ms")
         system.ui.info("AutoSync timeout updated!\n\nNew interval: " + str(new_timeout) + "ms (" + str(new_timeout / 1000.0) + " seconds)\n\nIf AutoSync is running, the change will apply on the next sync cycle (immediately).")
-    except Exception as e:
-        system.ui.error("Error writing metadata: " + safe_str(e))
+    else:
+        system.ui.error("Error writing metadata")
 
 if __name__ == "__main__":
     main()

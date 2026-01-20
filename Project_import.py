@@ -11,107 +11,16 @@ import os
 import codecs
 import json
 import time
+from codesys_constants import IMPL_MARKER
+from codesys_utils import (
+    safe_str, parse_st_file, build_object_cache, 
+    find_object_by_guid, find_object_by_name, load_base_dir
+)
 
-# Markers used in export format
-IMPL_MARKER = "// === IMPLEMENTATION ==="
-
-
-def safe_str(value):
-    """Safely convert value to string"""
-    try:
-        return str(value)
-    except:
-        return "N/A"
+# Shared constants and utilities imported from modules
 
 
-def parse_st_file(file_path):
-    """
-    Parse an ST file and extract declaration and implementation sections.
-    Returns tuple (declaration, implementation).
-    """
-    try:
-        with codecs.open(file_path, "r", "utf-8") as f:
-            content = f.read()
-    except Exception as e:
-        print("Error reading file " + file_path + ": " + safe_str(e))
-        return None, None
-    
-    declaration = None
-    implementation = None
-    
-    if IMPL_MARKER in content:
-        parts = content.split(IMPL_MARKER)
-        declaration = parts[0].strip()
-        implementation = parts[1].strip() if len(parts) > 1 else None
-    else:
-        # No implementation marker - entire content is declaration
-        declaration = content.strip()
-    
-    return declaration, implementation
 
-
-def build_object_cache():
-    """Builds lookup caches for project objects"""
-    print("Building object cache...")
-    
-    guid_map = {}
-    name_map = {}
-    
-    if not projects.primary:
-        return guid_map, name_map
-
-    try:
-        all_objects = projects.primary.get_children(recursive=True)
-    except:
-        return guid_map, name_map
-    
-    for obj in all_objects:
-        try:
-            # GUID Cache
-            g = safe_str(obj.guid)
-            if g != "N/A":
-                guid_map[g] = obj
-            
-            # Name Cache
-            n = safe_str(obj.get_name())
-            if n not in name_map:
-                name_map[n] = []
-            name_map[n].append(obj)
-        except:
-            continue
-            
-    return guid_map, name_map
-
-
-def find_object_by_guid(guid, guid_map):
-    """Find a CODESYS object by its GUID using cache"""
-    return guid_map.get(guid)
-
-
-def find_object_by_name(name, name_map, parent_name=None):
-    """
-    Find a CODESYS object by name using cache.
-    Returns first match or None.
-    """
-    found = name_map.get(name)
-    if not found:
-        return None
-    
-    if len(found) == 1:
-        return found[0]
-    
-    # Multiple matches - filter by parent if provided
-    if parent_name:
-        for obj in found:
-            try:
-                if hasattr(obj, "parent") and obj.parent:
-                    if obj.parent.get_name() == parent_name:
-                        return obj
-            except:
-                continue
-    
-    # Return first match if no parent filter or no parent match
-    return found[0]
 
 
 def update_object_code(obj, declaration, implementation):
@@ -176,7 +85,8 @@ def import_project(import_dir):
     print("Found " + str(len(objects_meta)) + " objects in metadata")
     
     # Build cache for fast lookup
-    guid_map, name_map = build_object_cache()
+    print("Building object cache...")
+    guid_map, name_map = build_object_cache(projects.primary)
     
     untracked_items = []
     
@@ -282,13 +192,9 @@ def import_project(import_dir):
 
 
 def main():
-    config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "BASE_DIR")
-    
-    if os.path.exists(config_path):
-        with open(config_path, "r") as f:
-            base_dir = f.read().strip()
-    else:
-        system.ui.warning("Base directory is not set! Please run 'Project_directory.py' first.")
+    base_dir, error = load_base_dir()
+    if error:
+        system.ui.warning(error)
         return
     
     # Confirmation dialog

@@ -1,6 +1,6 @@
 # cds-text-sync
 
-**Version**: `0.9.1-beta`
+**Version**: `0.9.2-beta`
 
 > [!WARNING]
 > **⚠️ BETA SOFTWARE - USE WITH CAUTION ⚠️**
@@ -24,6 +24,7 @@ This repository contains a set of Python scripts for **CODESYS** that enable a r
 - **Git Friendly**: Exports code to standard `.st` (Structured Text) files organized by project hierarchy.
 - **Metadata-Driven**: Uses GUIDs and metadata to ensure reliable updates even if objects are moved or renamed in the project.
 - **Safety Checks**: Project identity verification on export.
+- **Modular Architecture**: Shared constants and utilities for easier maintenance.
 
 ---
 
@@ -47,26 +48,55 @@ This repository contains a set of Python scripts for **CODESYS** that enable a r
 
 ## 📖 Script Overview
 
-### 1. `Project_directory.py`
+### Core Scripts
+
+#### 1. `Project_directory.py`
 **The First Step.** Run this to select the folder on your computer where your code should be synced. This creates a `BASE_DIR` file in the script directory to remember your choice.
 
-### 2. `Project_export.py`
+#### 2. `Project_export.py`
 Exports the current CODESYS project to the selected directory.
 - Creates `.st` files for all POUs, Methods, Actions, Properties, GVLs, and DUTs.
 - Generates a `_metadata.json` file with project info, sync settings, and object mappings.
 - **Safety Check**: Warns if exporting to a directory containing a different project's files.
 - **CRITICAL**: Do not delete `_metadata.json`, as it's required for importing.
 
-### 3. `Project_import.py`
+#### 3. `Project_import.py`
 Reads the `.st` files in your sync directory and updates the CODESYS project.
 - Matches files to CODESYS objects using the metadata.
 - **Untracked File Warning**: If you create new `.st` files or folders directly in the file system, the script will skip them and warn you with a popup list after importing.
 - **Warning**: This will overwrite the code in your open CODESYS project. Always have a backup!
 
-### 4. `Project_set_sync_timeout.py`
-Configure the sync check interval for exports.
+#### 4. `Project_ImportSync.py`
+Auto-synchronize external file changes to CODESYS (one-way: Folder → IDE).
+- Monitors exported `.st` files for changes
+- Automatically updates CODESYS objects when files are modified
+- Configurable sync interval via `Project_set_sync_timeout.py`
+- Run once to START, run again to STOP
+
+#### 5. `Project_set_sync_timeout.py`
+Configure the sync check interval for AutoSync.
 - Offers predefined timeout options (2s, 5s, 10s, 15s, 30s)
 - Updates timeout settings in `_metadata.json`
+- Changes apply immediately if AutoSync is running
+
+#### 6. `Erase_comments_add_Header.py`
+Utility to remove comments and add copyright headers to exported files.
+
+### Shared Modules
+
+#### `codesys_constants.py`
+Central repository for CODESYS type GUIDs and constants.
+- TYPE_GUIDS dictionary
+- EXPORTABLE_TYPES list
+- IMPL_MARKER constant
+- Other shared constants
+
+#### `codesys_utils.py`
+Common utility functions used across all scripts.
+- File parsing and metadata handling
+- Object caching and lookup
+- Base directory management
+- Safe string conversion
 
 ---
 
@@ -80,6 +110,8 @@ Configure the sync check interval for exports.
 5. **Review**: Use Git to review your edits.
 6. **Import**: Run `Project_import.py` in CODESYS to bring the changes back into the PLC environment.
 
+**Alternative**: Use `Project_ImportSync.py` for automatic synchronization while editing.
+
 ---
 
 ## ⚠️ Important Notes
@@ -88,6 +120,34 @@ Configure the sync check interval for exports.
 - **Metadata**: The `_metadata.json` file contains project info and object mappings. You can manually edit sync settings if needed, but don't modify the `objects` section.
 - **Backups**: Always save a `.project` backup before running an import.
 - **Creating New Blocks**: The best workflow is to **create the block name in CODESYS IDE first**, export it, and then fill the content externally. Creating files manually in the folder system will trigger a warning during import because they lack metadata.
+
+---
+
+## 📝 Changelog
+
+### Version 0.9.2-beta (2026-01-20)
+
+**Major Refactoring:**
+- Extracted common code into shared modules (`codesys_constants.py` and `codesys_utils.py`)
+- Reduced code duplication by ~300 lines across 5 scripts
+- Centralized CODESYS type GUIDs and constants
+- Improved maintainability and consistency
+
+**Bug Fixes:**
+- **CRITICAL FIX**: Fixed `build_object_cache()` not finding objects when called from imported modules
+  - Issue: Imported modules don't have access to CODESYS global variables (`projects`)
+  - Solution: Modified function to accept project as parameter
+  - Impact: Import and AutoSync now work correctly
+- Updated all scripts to pass `projects.primary` to `build_object_cache()`
+
+**New Files:**
+- `codesys_constants.py` - Shared constants and type definitions
+- `codesys_utils.py` - Shared utility functions
+- `debug_metadata.py` - Diagnostic tool for troubleshooting
+- `REFACTORING_SUMMARY.md` - Detailed refactoring documentation
+
+**See Also:**
+- [REFACTORING_SUMMARY.md](REFACTORING_SUMMARY.md) for detailed refactoring information
 
 ---
 
