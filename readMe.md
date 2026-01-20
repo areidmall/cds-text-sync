@@ -1,6 +1,6 @@
 # cds-text-sync
 
-**Version**: `0.9.2-beta`
+**Version**: `0.9.5-beta`
 
 > [!WARNING]
 > **⚠️ BETA SOFTWARE - USE WITH CAUTION ⚠️**

@@ -18,7 +18,7 @@ import codecs
 import json
 import time
 from codesys_constants import TYPE_GUIDS, EXPORTABLE_TYPES, IMPL_MARKER, XML_TYPES
-from codesys_utils import safe_str, clean_filename, load_base_dir, save_metadata
+from codesys_utils import safe_str, clean_filename, load_base_dir, save_metadata, calculate_hash
 
 # Shared constants and utilities imported from modules
 
@@ -278,6 +278,9 @@ def export_project(export_dir):
                     
                 with codecs.open(file_path, "w", "utf-8") as f:
                     f.write(content)
+                
+                # Calculate hash for metadata
+                content_hash = calculate_hash(content)
             
             # Build relative path for metadata
             if path_parts:
@@ -292,7 +295,8 @@ def export_project(export_dir):
                 "guid": obj_guid,
                 "type": obj_type,
                 "name": obj_name,
-                "parent": safe_str(obj.parent.get_name()) if hasattr(obj, "parent") and obj.parent else None
+                "parent": safe_str(obj.parent.get_name()) if hasattr(obj, "parent") and obj.parent else None,
+                "content_hash": locals().get("content_hash", "")
             }
             
             print("Exported: " + rel_path)

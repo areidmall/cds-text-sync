@@ -7,7 +7,17 @@ Contains common utility functions used across export, import, and sync scripts.
 import os
 import codecs
 import json
+import hashlib
 from codesys_constants import IMPL_MARKER, FORBIDDEN_CHARS
+
+
+def calculate_hash(content):
+    """Calculate SHA256 hash of string content"""
+    if content is None:
+        return ""
+    if isinstance(content, str):
+        content = content.encode('utf-8')
+    return hashlib.sha256(content).hexdigest()
 
 
 def safe_str(value):
