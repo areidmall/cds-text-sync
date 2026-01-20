@@ -208,6 +208,33 @@ def export_project(export_dir):
             obj_name = obj.get_name()
             obj_guid = safe_str(obj.guid)
             
+            # Special handling for folders - create directory and convert
+            if obj_type == TYPE_GUIDS["folder"]:
+                path_parts = get_object_path(obj)
+                clean_name = clean_filename(obj_name)
+                
+                # Add folder itself to path
+                path_parts.append(clean_name)
+                
+                target_dir = os.path.join(export_dir, *path_parts) if path_parts else export_dir
+                
+                if not os.path.exists(target_dir):
+                    os.makedirs(target_dir)
+                    print("Created folder: " + "/".join(path_parts))
+                
+                # Add to metadata
+                rel_path = "/".join(path_parts)
+                metadata["objects"][rel_path] = {
+                    "guid": obj_guid,
+                    "type": obj_type,
+                    "name": obj_name,
+                    "parent": safe_str(obj.parent.get_name()) if hasattr(obj, "parent") and obj.parent else None,
+                    "content_hash": ""
+                }
+                exported_count += 1
+                
+                continue
+
             # Skip non-exportable types
             if obj_type not in EXPORTABLE_TYPES:
                 continue
