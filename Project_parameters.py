@@ -82,7 +82,7 @@ def main():
     # Load metadata
     metadata = load_metadata(base_dir)
     if not metadata:
-        system.ui.error("_metadata.json not found! Run 'Project_export.py' first.")
+        system.ui.error("Configuration not found! Run 'Project_export.py' first.")
         return
     
     # Main Menu

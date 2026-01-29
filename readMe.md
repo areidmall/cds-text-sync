@@ -1,6 +1,6 @@
 # cds-text-sync
 
-**Version**: `0.9.8-beta`
+**Version**: `0.9.9-beta`
 
 > [!WARNING]
 > **⚠️ BETA SOFTWARE - USE WITH CAUTION ⚠️**
@@ -73,10 +73,10 @@ This repository contains a set of Python scripts for **CODESYS** that facilitate
 #### 2. `Project_export.py`
 Exports the current CODESYS project to the selected directory.
 - Creates `.st` files for all POUs, Methods, Actions, Properties, GVLs, and DUTs.
-- Generates a `_metadata.json` file with project info, sync settings, and object mappings.
+- Generates `_config.json` and `_metadata.csv` files with project info, sync settings, and object mappings.
 - **Safety Check**: Warns if exporting to a directory containing a different project's files.
 - **Orphan Cleanup**: Detects and offers to delete files on disk that no longer exist in the CODESYS project.
-- **CRITICAL**: Do not delete `_metadata.json`, as it's required for importing.
+- **CRITICAL**: Do not delete metadata files, as they are required for importing.
 
 #### 3. `Project_import.py`
 Reads the `.st` files in your sync directory and updates the CODESYS project.
@@ -135,13 +135,22 @@ Common utility functions used across all scripts.
 ## ⚠️ Important Notes
 
 - **⚠️ BETA STATUS**: This software is in active development. **Always backup your project** before using any script.
-- **Metadata**: The `_metadata.json` file contains project info and object mappings. You can manually edit sync settings if needed, but don't modify the `objects` section.
+- **Metadata**: Project settings are stored in `_config.json` and object mappings in `_metadata.csv`. Don't modify the CSV file manually.
+- **Metadata Versioning**: If you update these scripts, you MUST perform a fresh **Export from IDE** to regenerate the metadata. It is recommended to clean the export folder first.
 - **Backups**: Always save a `.project` backup before running an import.
 - **Creating New Blocks**: You can now create new `.st` files and folders directly in your OS. The import script will automatically create the corresponding objects (POUs, GVLs, Folders) in CODESYS.
 
 ---
 
 ## 📝 Changelog
+
+### Version 0.9.9-beta (2026-01-29)
+
+**Major Storage Update:**
+- **Split Metadata**: Replaced `_metadata.json` with `_config.json` (JSON) and `_metadata.csv` (CSV) for better performance and scalability.
+- **Improved Hashing**: Unified ST content formatting ensures consistent hashes regardless of trailing whitespace.
+- **Enhanced Debug Info**: Detailed import/export statistics and progress tracking in the CODESYS console.
+- **NOTE**: Transitioning to this version requires a fresh export from the IDE. Clean your export folder before running `Project_export.py`.
 
 ### Version 0.9.8-beta (2026-01-29)
 

@@ -60,54 +60,127 @@ def load_base_dir():
 
 
 def load_metadata(base_dir):
-    """Load metadata from _metadata.json"""
-    metadata_path = os.path.join(base_dir, "_metadata.json")
-    if not os.path.exists(metadata_path):
-        return None
+    """
+    Load metadata from _config.json and _metadata.csv.
+    Maintains backward compatibility by returning a merged dictionary.
+    """
+    metadata = {}
     
-    try:
-        with codecs.open(metadata_path, "r", "utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        print("Error reading metadata: " + safe_str(e))
+    # 1. Load configuration from _config.json
+    config_path = os.path.join(base_dir, "_config.json")
+    if os.path.exists(config_path):
+        try:
+            with codecs.open(config_path, "r", "utf-8") as f:
+                metadata = json.load(f)
+        except Exception as e:
+            print("Error reading _config.json: " + safe_str(e))
+    
+    if not metadata and not os.path.exists(os.path.join(base_dir, "_metadata.csv")):
         return None
+
+    # 2. Load object metadata from _metadata.csv
+    csv_path = os.path.join(base_dir, "_metadata.csv")
+    if "objects" not in metadata:
+        metadata["objects"] = {}
+        
+    if os.path.exists(csv_path):
+        try:
+            with codecs.open(csv_path, "r", "utf-8") as f:
+                lines = f.readlines()
+                if len(lines) > 1:
+                    # Skip header: GUID;Name;Path;LastModified;Type;Parent;ContentHash
+                    for line in lines[1:]:
+                        line = line.strip()
+                        if not line: continue
+                        parts = line.split(";")
+                        if len(parts) >= 7:
+                            guid, name, path, last_mod, obj_type, parent, content_hash = parts[:7]
+                            metadata["objects"][path] = {
+                                "guid": guid,
+                                "name": name,
+                                "last_modified": last_mod,
+                                "type": obj_type,
+                                "parent": parent if parent != "None" else None,
+                                "content_hash": content_hash
+                            }
+        except Exception as e:
+            print("Error reading _metadata.csv: " + safe_str(e))
+            
+    return metadata
+
+
+def format_st_content(declaration, implementation):
+    """
+    Format ST file content with clean structure.
+    Uses markers for import script to parse sections.
+    Ensures consistent whitespace for reliable hashing.
+    """
+    content = []
+    
+    decl = (declaration or "").strip()
+    if decl:
+        content.append(decl)
+    
+    impl = (implementation or "").strip()
+    if impl:
+        if content:
+            content.append("")  # Empty line separator
+        content.append(IMPL_MARKER)
+        content.append(impl)
+    
+    return "\n".join(content)
 
 
 def save_metadata(base_dir, metadata):
-    """Save metadata to _metadata.json with config fields at the top"""
-    metadata_path = os.path.join(base_dir, "_metadata.json")
+    """
+    Save metadata: configuration to _config.json and objects to _metadata.csv.
+    """
+    config_path = os.path.join(base_dir, "_config.json")
+    csv_path = os.path.join(base_dir, "_metadata.csv")
+    
     try:
-        # Reconstruct metadata with desired field order
-        ordered_metadata = {}
+        # 1. Save configuration fields to JSON
+        config_fields = [
+            "project_name", "project_path", "export_timestamp", 
+            "autosync", "sync_timeout", "export_xml"
+        ]
+        config_data = {}
+        for field in config_fields:
+            if field in metadata:
+                config_data[field] = metadata[field]
         
-        # Configuration fields first
-        if "project_name" in metadata:
-            ordered_metadata["project_name"] = metadata["project_name"]
-        if "project_path" in metadata:
-            ordered_metadata["project_path"] = metadata["project_path"]
-        if "export_timestamp" in metadata:
-            ordered_metadata["export_timestamp"] = metadata["export_timestamp"]
-        if "autosync" in metadata:
-            ordered_metadata["autosync"] = metadata["autosync"]
-        if "sync_timeout" in metadata:
-            ordered_metadata["sync_timeout"] = metadata["sync_timeout"]
-        if "export_xml" in metadata:
-            ordered_metadata["export_xml"] = metadata["export_xml"]
-        
-        # Objects last
-        if "objects" in metadata:
-            ordered_metadata["objects"] = metadata["objects"]
-        
-        # Add any other fields that might exist
+        # Add any other non-object fields
         for key in metadata:
-            if key not in ordered_metadata:
-                ordered_metadata[key] = metadata[key]
+            if key != "objects" and key not in config_data:
+                config_data[key] = metadata[key]
         
-        with codecs.open(metadata_path, "w", "utf-8") as f:
-            json.dump(ordered_metadata, f, indent=2, ensure_ascii=False)
+        with codecs.open(config_path, "w", "utf-8") as f:
+            json.dump(config_data, f, indent=2, ensure_ascii=False)
+            
+        # 2. Save object metadata to CSV
+        if "objects" in metadata:
+            with codecs.open(csv_path, "w", "utf-8") as f:
+                # Header
+                f.write("GUID;Name;Path;LastModified;Type;Parent;ContentHash\n")
+                
+                # Sort objects by path for consistency
+                paths = sorted(metadata["objects"].keys())
+                for path in paths:
+                    obj = metadata["objects"][path]
+                    guid = safe_str(obj.get("guid", ""))
+                    name = safe_str(obj.get("name", ""))
+                    last_mod = safe_str(obj.get("last_modified", ""))
+                    obj_type = safe_str(obj.get("type", ""))
+                    parent = safe_str(obj.get("parent", ""))
+                    content_hash = safe_str(obj.get("content_hash", ""))
+                    
+                    line = ";".join([guid, name, path, last_mod, obj_type, parent, content_hash])
+                    f.write(line + "\n")
+        
+                
         return True
     except Exception as e:
-        print("Error writing metadata: " + safe_str(e))
+        print("Error saving split metadata: " + safe_str(e))
         return False
 
 

@@ -18,7 +18,10 @@ import codecs
 import json
 import time
 from codesys_constants import TYPE_GUIDS, EXPORTABLE_TYPES, IMPL_MARKER, XML_TYPES
-from codesys_utils import safe_str, clean_filename, load_base_dir, save_metadata, calculate_hash
+from codesys_utils import (
+    safe_str, clean_filename, load_base_dir, 
+    save_metadata, calculate_hash, format_st_content
+)
 
 # Shared constants and utilities imported from modules
 
@@ -94,23 +97,6 @@ def export_object_content(obj):
     return declaration, implementation
 
 
-def format_st_content(declaration, implementation, obj_type_guid):
-    """
-    Format ST file content with clean structure.
-    Uses markers for import script to parse sections.
-    """
-    content = []
-    
-    if declaration:
-        content.append(declaration)
-    
-    if implementation:
-        if content:
-            content.append("")  # Empty line separator
-        content.append("// === IMPLEMENTATION ===")
-        content.append(implementation)
-    
-    return "\n".join(content)
 
 
 def export_native_xml(obj, file_path):
@@ -147,7 +133,7 @@ def cleanup_orphaned_files(export_dir, current_objects):
         # Check files
         for f in files:
             # Skip reserved files
-            if f in ["_metadata.json", "BASE_DIR"] or f.startswith("."):
+            if f in ["_metadata.json", "_config.json", "_metadata.csv", "BASE_DIR"] or f.startswith("."):
                 continue
             
             # Only consider our export types to be safe
@@ -389,7 +375,7 @@ def export_project(export_dir):
             else:
                 # Textual export
                 declaration, implementation = export_object_content(obj)
-                content = format_st_content(declaration, implementation, obj_type)
+                content = format_st_content(declaration, implementation)
                 
                 if not content.strip():
                     skipped_count += 1
@@ -430,7 +416,7 @@ def export_project(export_dir):
     
     # Write metadata file with consistent field order
     if save_metadata(export_dir, metadata):
-        print("Created: _metadata.json")
+        print("Created: _config.json and _metadata.csv")
     else:
         print("Error writing metadata")
     
