@@ -1,6 +1,6 @@
 # cds-text-sync
 
-**Version**: `0.9.7-beta`
+**Version**: `0.9.8-beta`
 
 > [!WARNING]
 > **⚠️ BETA SOFTWARE - USE WITH CAUTION ⚠️**
@@ -41,6 +41,7 @@ This repository contains a set of Python scripts for **CODESYS** that facilitate
 - **Smart Metadata**: Uses GUIDs to ensure reliable syncing even if you rename or move objects.
 - **Reversible Sync**: Round-trip editing for Structured Text files.
 - **Safety**: Built-in checks to prevent overwriting the wrong project.
+- **Bi-directional Deletion**: Keep your file system and CODESYS project in sync by removing orphaned files or objects.
 
 ---
 
@@ -74,6 +75,7 @@ Exports the current CODESYS project to the selected directory.
 - Creates `.st` files for all POUs, Methods, Actions, Properties, GVLs, and DUTs.
 - Generates a `_metadata.json` file with project info, sync settings, and object mappings.
 - **Safety Check**: Warns if exporting to a directory containing a different project's files.
+- **Orphan Cleanup**: Detects and offers to delete files on disk that no longer exist in the CODESYS project.
 - **CRITICAL**: Do not delete `_metadata.json`, as it's required for importing.
 
 #### 3. `Project_import.py`
@@ -82,6 +84,7 @@ Reads the `.st` files in your sync directory and updates the CODESYS project.
 - **New Creation**: Automatically creates new Folders, POUs, GVLs, and DUTs found in the file system.
 - **Child Objects**: Supports creating Methods, Actions, and Properties (e.g., `MyPOU.MyAction.st`).
 - **Warning**: This will overwrite the code in your open CODESYS project. Always have a backup!
+- **Sync Deletions**: If you delete a file on disk, the importer will offer to delete the corresponding object in CODESYS.
 
 #### 4. `Project_ImportSync.py`
 Auto-synchronize external file changes to CODESYS (one-way: Folder → IDE).
@@ -139,6 +142,13 @@ Common utility functions used across all scripts.
 ---
 
 ## 📝 Changelog
+
+### Version 0.9.8-beta (2026-01-29)
+
+**New Features & Improvements:**
+- **Orphan Cleanup (Export)**: `Project_export.py` now identifies files in the export directory that are no longer part of the CODESYS project and offers to delete them.
+- **Deletion Sync (Import)**: `Project_import.py` now detects when files have been removed from disk and offers to delete the matching objects from the CODESYS IDE.
+- **Empty Folder Management**: Automatic cleanup of empty directories during the export process.
 
 ### Version 0.9.7-beta (2026-01-20)
 

@@ -131,6 +131,98 @@ def export_native_xml(obj, file_path):
         return False
 
 
+def cleanup_orphaned_files(export_dir, current_objects):
+    """
+    Find and optionally delete files in export_dir that are not in current_objects.
+    """
+    orphaned_items = []
+    
+    # We'll collect everything first to show a preview
+    for root, dirs, files in os.walk(export_dir):
+        # Calculate relative path from export_dir
+        rel_root = os.path.relpath(root, export_dir)
+        if rel_root == ".":
+            rel_root = ""
+            
+        # Check files
+        for f in files:
+            # Skip reserved files
+            if f in ["_metadata.json", "BASE_DIR"] or f.startswith("."):
+                continue
+            
+            # Only consider our export types to be safe
+            if not (f.endswith(".st") or f.endswith(".xml")):
+                continue
+                
+            rel_path = os.path.join(rel_root, f).replace("\\", "/")
+            if rel_path not in current_objects:
+                orphaned_items.append(rel_path)
+
+    if not orphaned_items:
+        return True
+
+    # Prompt user
+    message = "The following files exist in the export directory but are NOT in the CODESYS project (orphans):\n\n"
+    # Show first 15 files as preview
+    for item in orphaned_items[:15]:
+        message += "- " + item + "\n"
+    if len(orphaned_items) > 15:
+        message += "... and " + str(len(orphaned_items) - 15) + " more.\n"
+    
+    message += "\nWould you like to delete these orphaned files?"
+    
+    # buttons: Delete, Ignore, Cancel
+    try:
+        result = system.ui.choose(message, ("Delete Orphans", "Ignore", "Cancel Export"))
+    except:
+        # Fallback for environments where choose is not available or fails
+        print("UI Choose not available, skipping cleanup.")
+        return True
+    
+    if result[0] == 0: # Delete
+        print("Cleaning up orphaned files...")
+        for rel_path in orphaned_items:
+            full_path = os.path.join(export_dir, rel_path.replace("/", os.sep))
+            try:
+                if os.path.exists(full_path):
+                    os.remove(full_path)
+                    print("Deleted: " + rel_path)
+            except Exception as e:
+                print("Error deleting " + rel_path + ": " + safe_str(e))
+        
+        # Now clean up empty directories
+        # Use topdown=False to delete subdirectories before parents
+        for root, dirs, files in os.walk(export_dir, topdown=False):
+            rel_root = os.path.relpath(root, export_dir)
+            if rel_root == "." or not rel_root:
+                continue
+            
+            rel_path = rel_root.replace("\\", "/")
+            
+            # Check if this folder or any of its children should exist
+            folder_needed = False
+            for obj_path in current_objects:
+                if obj_path.startswith(rel_path + "/"):
+                    folder_needed = True
+                    break
+            
+            if not folder_needed and rel_path not in current_objects:
+                # If directory is empty, delete it
+                try:
+                    if not os.listdir(root):
+                        os.rmdir(root)
+                        print("Deleted empty folder: " + rel_path)
+                except:
+                    pass
+        return True
+    elif result[0] == 1: # Ignore
+        print("Orphaned files ignored.")
+        return True
+    else: # Cancel
+        print("Export cancelled during cleanup.")
+        return False
+
+
 def export_project(export_dir):
     """Export all project objects to folder structure with metadata"""
     
@@ -331,6 +423,10 @@ def export_project(export_dir):
             
         except Exception as e:
             print("Error exporting " + safe_str(obj) + ": " + safe_str(e))
+    
+    # Cleanup orphaned files (files on disk not in current export)
+    if not cleanup_orphaned_files(export_dir, metadata["objects"]):
+        return
     
     # Write metadata file with consistent field order
     if save_metadata(export_dir, metadata):

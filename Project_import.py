@@ -317,6 +317,70 @@ def ensure_folder_path(path_str):
     return current_obj
 
 
+def cleanup_ide_orphans(import_dir, objects_meta, guid_map, name_map):
+    """
+    Find objects in IDE that have no corresponding file on disk and ask to delete them.
+    Returns list of rel_paths that were deleted.
+    """
+    orphans = []
+    
+    # Sort keys so children are processed before parents (or just to have a consistent order)
+    # Actually for deletion we might want to delete from leaves up.
+    all_paths = sorted(objects_meta.keys(), key=lambda x: x.count('/'), reverse=True)
+    
+    for rel_path in all_paths:
+        file_path = os.path.join(import_dir, rel_path.replace("/", os.sep))
+        if not os.path.exists(file_path):
+            # File deleted from disk, check if it exists in IDE
+            info = objects_meta[rel_path]
+            obj = None
+            if info.get("guid") and info.get("guid") != "N/A":
+                obj = find_object_by_guid(info["guid"], guid_map)
+            
+            if not obj and info.get("name"):
+                obj = find_object_by_name(info["name"], name_map, info.get("parent"))
+                
+            if obj:
+                orphans.append((rel_path, obj))
+
+    if not orphans:
+        return []
+
+    # Prompt user
+    message = "The following objects were removed from the disk but still exist in CODESYS:\n\n"
+    for rel_path, _ in orphans[:15]:
+        message += "- " + rel_path + "\n"
+    if len(orphans) > 15:
+        message += "... and " + str(len(orphans) - 15) + " more.\n"
+    
+    message += "\nWould you like to delete these objects from the CODESYS project?"
+    
+    try:
+        result = system.ui.choose(message, ("Delete from IDE", "Ignore", "Cancel Import"))
+    except:
+        print("UI Choose not available, skipping IDE cleanup.")
+        return []
+    
+    if result[0] == 0: # Delete
+        print("Deleting orphaned objects from IDE...")
+        deleted_paths = []
+        for rel_path, obj in orphans:
+            try:
+                name = safe_str(obj.get_name())
+                obj.remove()
+                print("Deleted from IDE: " + name + " (" + rel_path + ")")
+                deleted_paths.append(rel_path)
+            except Exception as e:
+                print("Error deleting " + rel_path + ": " + safe_str(e))
+        return deleted_paths
+    elif result[0] == 1: # Ignore
+        print("Orphaned objects in IDE ignored.")
+        return []
+    else: # Cancel
+        print("Import cancelled during IDE cleanup.")
+        return None # Special value to indicate cancellation
+
+
 def import_project(import_dir):
     """Import ST files from folder structure back into CODESYS project"""
     
@@ -387,6 +451,16 @@ def import_project(import_dir):
     print("Building object cache...")
     guid_map, name_map = build_object_cache(projects.primary)
     
+    # Cleanup objects in IDE that were deleted from disk
+    deleted_from_ide = cleanup_ide_orphans(import_dir, objects_meta, guid_map, name_map)
+    if deleted_from_ide is None:
+        return # Cancelled
+    
+    # Remove deleted objects from metadata so we don't try to process them
+    for path in deleted_from_ide:
+        if path in objects_meta:
+            del objects_meta[path]
+            
     untracked_items = []
     
     # Build a set of folders that ARE tracked (as parents of known objects)
@@ -812,7 +886,7 @@ def import_project(import_dir):
         skipped_count += new_stats["skipped"]
     
     # Save updated metadata with new hashes
-    if updated_count > 0 or created_count > 0:
+    if updated_count > 0 or created_count > 0 or (deleted_from_ide and len(deleted_from_ide) > 0):
         print("Saving updated metadata...")
         save_metadata(import_dir, metadata)
     
