@@ -12,6 +12,10 @@ import csv
 import sys
 import traceback
 import time
+import threading
+
+# --- Global Thread Lock ---
+_metadata_thread_lock = threading.Lock()
 from codesys_constants import IMPL_MARKER, FORBIDDEN_CHARS
 
 
@@ -119,6 +123,60 @@ def load_base_dir():
     except Exception as e:
         log_error("Error reading BASE_DIR: " + safe_str(e))
         return None, "Error reading BASE_DIR. See log for details."
+
+
+class MetadataLock:
+    """
+    File-based lock to prevent race conditions during metadata access.
+    Combines threading lock for same-process safety and directory-based 
+    lock for cross-process/script safety.
+    """
+    def __init__(self, base_dir, timeout=10):
+        self.lock_path = os.path.join(base_dir, ".metadata.lock")
+        self.timeout = timeout
+        self.locked = False
+
+    def acquire(self):
+        start = time.time()
+        while time.time() - start < self.timeout:
+            try:
+                # os.mkdir is atomic on Windows/Linux and fails if exists
+                os.mkdir(self.lock_path)
+                self.locked = True
+                return True
+            except OSError:
+                # Directory exists or other OS error
+                # We could check lock folder timestamp here to break stale locks
+                try:
+                    mtime = os.path.getmtime(self.lock_path)
+                    if time.time() - mtime > 300: # Stale after 5 minutes
+                        log_warning("Breaking stale metadata lock...")
+                        os.rmdir(self.lock_path)
+                        continue
+                except:
+                    pass
+                time.sleep(0.5)
+        return False
+
+    def release(self):
+        if self.locked:
+            try:
+                os.rmdir(self.lock_path)
+            except:
+                pass
+            self.locked = False
+
+    def __enter__(self):
+        _metadata_thread_lock.acquire()
+        if not self.acquire():
+            _metadata_thread_lock.release()
+            log_error("Metadata lock timeout")
+            raise Exception("Metadata lock timeout: Another sync operation is in progress.")
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.release()
+        _metadata_thread_lock.release()
 
 
 def load_metadata(base_dir):

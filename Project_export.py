@@ -21,7 +21,7 @@ from codesys_constants import TYPE_GUIDS, EXPORTABLE_TYPES, IMPL_MARKER, XML_TYP
 from codesys_utils import (
     safe_str, clean_filename, load_base_dir, 
     save_metadata, calculate_hash, format_st_content,
-    log_info, log_warning, log_error
+    log_info, log_warning, log_error, MetadataLock
 )
 
 # Shared constants and utilities imported from modules
@@ -415,10 +415,11 @@ def export_project(export_dir):
         return
     
     # Write metadata file with consistent field order
-    if save_metadata(export_dir, metadata):
-        print("Created: _config.json and _metadata.csv")
-    else:
-        print("Error writing metadata")
+    with MetadataLock(export_dir):
+        if save_metadata(export_dir, metadata):
+            print("Created: _config.json and _metadata.csv")
+        else:
+            print("Error writing metadata")
     
     print("=== Export Complete ===")
     elapsed_time = time.time() - start_time

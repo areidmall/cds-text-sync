@@ -41,7 +41,7 @@ from codesys_constants import IMPL_MARKER, DEFAULT_TIMEOUT_MS, TYPE_GUIDS
 from codesys_utils import (
     safe_str, load_metadata, save_metadata, parse_st_file,
     build_object_cache, find_object_by_guid, find_object_by_name, load_base_dir,
-    calculate_hash, format_st_content
+    calculate_hash, format_st_content, MetadataLock
 )
 
 # Shared constants and utilities imported from modules
@@ -53,7 +53,8 @@ if not hasattr(sys, "_codesys_autosync"):
         "base_dir": None,
         "file_states": {},
         "guid_map": {},
-        "name_map": {}
+        "name_map": {},
+        "syncing": False
     }
 
 def get_sync_status(metadata):
@@ -117,91 +118,106 @@ def update_object_code(obj, declaration, implementation):
 
 def sync_check():
     """Check for file changes and sync them to CODESYS"""
-    base_dir = sys._codesys_autosync["base_dir"]
-    file_states = sys._codesys_autosync["file_states"]
-    
-    if not base_dir or not os.path.exists(base_dir):
-        return
-    
-    # Reload metadata to get current object list
-    metadata = load_metadata(base_dir)
-    if not metadata:
-        print("AutoSync: Metadata file missing, stopping timer...")
-        stop_sync_internal()
-        return
-    
-    # Check if project name matches (user might have switched projects)
-    if projects.primary:
-        current_project = safe_str(projects.primary)
-        metadata_project = metadata.get("project_name", "")
-        if current_project != metadata_project:
-            print("AutoSync: Project changed (was: " + metadata_project + ", now: " + current_project + "), stopping timer...")
-            stop_sync_internal()
-            return
-    
-    # Check if sync is still enabled
-    if get_sync_status(metadata) != "RUNNING":
-        print("AutoSync: Sync was stopped externally, stopping timer...")
-        stop_sync_internal()
-        return
-    
-    # Check if timeout changed and update timer if needed
-    current_timeout = get_sync_timeout(metadata)
     state = sys._codesys_autosync
-    if state["timer"] and state["timer"].Interval != current_timeout:
-        state["timer"].Interval = current_timeout
-        print("AutoSync: Timeout updated to " + str(current_timeout) + "ms")
     
-    objects_meta = metadata.get("objects", {})
+    # Singleton check within the same process
+    if state.get("syncing"):
+        return
     
-    for rel_path, obj_info in objects_meta.items():
-        file_path = os.path.join(base_dir, rel_path.replace("/", os.sep))
+    state["syncing"] = True
+    try:
+        base_dir = state["base_dir"]
+        file_states = state["file_states"]
         
-        if not os.path.exists(file_path):
-            continue
+        if not base_dir or not os.path.exists(base_dir):
+            return
         
-        try:
-            # Check if file was modified
-            current_mtime = os.path.getmtime(file_path)
-            last_mtime = file_states.get(file_path, 0)
+        # Use file-based lock for cross-script safety
+        with MetadataLock(base_dir):
+            # Reload metadata to get current object list
+            metadata = load_metadata(base_dir)
+            if not metadata:
+                print("AutoSync: Metadata file missing, stopping timer...")
+                stop_sync_internal()
+                return
             
-            if current_mtime <= last_mtime:
-                continue
+            # Check if project name matches (user might have switched projects)
+            if projects.primary:
+                current_project = safe_str(projects.primary)
+                metadata_project = metadata.get("project_name", "")
+                if current_project != metadata_project:
+                    print("AutoSync: Project changed (was: " + metadata_project + ", now: " + current_project + "), stopping timer...")
+                    stop_sync_internal()
+                    return
             
-            # File changed - update it
-            file_states[file_path] = current_mtime
+            # Check if sync is still enabled
+            if get_sync_status(metadata) != "RUNNING":
+                print("AutoSync: Sync was stopped externally, stopping timer...")
+                stop_sync_internal()
+                return
             
-            obj_guid = obj_info.get("guid")
-            obj_name = obj_info.get("name")
-            parent_name = obj_info.get("parent")
+            # Check if timeout changed and update timer if needed
+            current_timeout = get_sync_timeout(metadata)
+            if state["timer"] and state["timer"].Interval != current_timeout:
+                state["timer"].Interval = current_timeout
+                print("AutoSync: Timeout updated to " + str(current_timeout) + "ms")
             
-            # Find object
-            obj = None
-            if obj_guid and obj_guid != "N/A":
-                obj = find_object_by_guid_cached(obj_guid)
+            objects_meta = metadata.get("objects", {})
+            metadata_changed = False
             
-            if obj is None and obj_name:
-                obj = find_object_by_name_cached(obj_name, parent_name)
+            for rel_path, obj_info in objects_meta.items():
+                file_path = os.path.join(base_dir, rel_path.replace("/", os.sep))
+                
+                if not os.path.exists(file_path):
+                    continue
+                
+                try:
+                    # Check if file was modified
+                    current_mtime = os.path.getmtime(file_path)
+                    last_mtime = file_states.get(file_path, 0)
+                    
+                    if current_mtime <= last_mtime:
+                        continue
+                    
+                    # File changed - update it
+                    file_states[file_path] = current_mtime
+                    
+                    obj_guid = obj_info.get("guid")
+                    obj_name = obj_info.get("name")
+                    parent_name = obj_info.get("parent")
+                    
+                    # Find object
+                    obj = None
+                    if obj_guid and obj_guid != "N/A":
+                        obj = find_object_by_guid_cached(obj_guid)
+                    
+                    if obj is None and obj_name:
+                        obj = find_object_by_name_cached(obj_name, parent_name)
+                    
+                    if obj is None:
+                        print("AutoSync: Object not found for " + rel_path)
+                        continue
+                    
+                    # Parse and update
+                    declaration, implementation = parse_st_file(file_path)
+                    
+                    if declaration is None and implementation is None:
+                        continue
+                    
+                    if update_object_code(obj, declaration, implementation):
+                        print("AutoSync: Synced " + obj_name)
+                        # Update metadata with new hash and mtime to keep everything in sync
+                        obj_info["content_hash"] = calculate_hash(format_st_content(declaration, implementation))
+                        obj_info["last_modified"] = safe_str(current_mtime)
+                        metadata_changed = True
+                
+                except Exception as e:
+                    print("AutoSync: Error processing " + rel_path + ": " + safe_str(e))
             
-            if obj is None:
-                print("AutoSync: Object not found for " + rel_path)
-                continue
-            
-            # Parse and update
-            declaration, implementation = parse_st_file(file_path)
-            
-            if declaration is None and implementation is None:
-                continue
-            
-            if update_object_code(obj, declaration, implementation):
-                print("AutoSync: Synced " + obj_name)
-                # Update metadata with new hash and mtime to keep everything in sync
-                obj_info["content_hash"] = calculate_hash(format_st_content(declaration, implementation))
-                obj_info["last_modified"] = safe_str(current_mtime)
+            if metadata_changed:
                 save_metadata(base_dir, metadata)
-        
-        except Exception as e:
-            print("AutoSync: Error processing " + rel_path + ": " + safe_str(e))
+    finally:
+        state["syncing"] = False
 
 def on_timer_tick(sender, args):
     """Timer callback - perform sync check"""
