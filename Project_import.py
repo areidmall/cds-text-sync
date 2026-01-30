@@ -17,7 +17,7 @@ from codesys_utils import (
     safe_str, parse_st_file, build_object_cache, 
     find_object_by_guid, find_object_by_name, load_base_dir,
     calculate_hash, save_metadata, load_metadata,
-    format_st_content
+    format_st_content, log_info, log_warning, log_error
 )
 
 # Shared constants and utilities imported from modules
@@ -41,9 +41,9 @@ def update_object_code(obj, declaration, implementation):
                 obj.textual_declaration.replace(declaration)
                 updated = True
             else:
-                print("  Warning: " + obj_name + " has no textual declaration property")
+                log_warning(obj_name + " has no textual declaration property")
         except Exception as e:
-            print("  Error updating declaration for " + obj_name + ": " + safe_str(e))
+            log_error("Error updating declaration for " + obj_name + ": " + safe_str(e))
     
     # Update implementation
     if implementation:
@@ -55,7 +55,7 @@ def update_object_code(obj, declaration, implementation):
                 # This is normal for GVLs and DUTs - they only have declaration
                 pass
         except Exception as e:
-            print("  Error updating implementation for " + obj_name + ": " + safe_str(e))
+            log_error("Error updating implementation for " + obj_name + ": " + safe_str(e))
     
     return updated
 
@@ -387,7 +387,7 @@ def import_project(import_dir):
                  new_folders.append(rel_path)
         
         for name in files:
-            if name in ["_metadata.json", "_config.json", "_metadata.csv", "BASE_DIR"] or name.startswith('.'):
+            if name in ["_metadata.json", "_config.json", "_metadata.csv", "BASE_DIR", "sync_debug.log"] or name.startswith('.'):
                 continue
             if not name.endswith(".st"):
                 continue
@@ -596,6 +596,7 @@ def import_project(import_dir):
     elapsed_time = time.time() - start_time
     print("  Time:    {:.2f}s".format(elapsed_time))
     
+    log_info("Import complete! Updated: " + str(updated_count) + ", Created: " + str(created_count))
     system.ui.info("Import complete!\n\nUpdated: " + str(updated_count) + "\nCreated: " + str(created_count) + "\nFailed: " + str(failed_count) + "\nSkipped: " + str(skipped_count) + "\nTime: {:.2f}s".format(elapsed_time))
 
 

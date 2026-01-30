@@ -8,7 +8,62 @@ import os
 import codecs
 import json
 import hashlib
+import csv
+import sys
+import traceback
+import time
 from codesys_constants import IMPL_MARKER, FORBIDDEN_CHARS
+
+
+# --- Logging System ---
+class Logger:
+    def __init__(self):
+        self.log_file = None
+        
+    def _initialize(self, base_dir=None):
+        if self.log_file: return
+        
+        try:
+            script_dir = os.path.dirname(os.path.abspath(__file__))
+            self.log_file = os.path.join(script_dir, "sync_debug.log")
+        except:
+            # Fallback to local dir if everything fails
+            self.log_file = "sync_debug.log"
+
+    def log(self, level, message, include_traceback=False):
+        self._initialize()
+        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+        log_entry = "[%s] [%s] %s\n" % (timestamp, level, message)
+        
+        if include_traceback:
+            log_entry += traceback.format_exc() + "\n"
+            
+        print("[%s] %s" % (level, message))
+        
+        try:
+            with codecs.open(self.log_file, "a", "utf-8") as f:
+                f.write(log_entry)
+        except:
+            pass
+
+_logger = Logger()
+
+def log_info(message):
+    _logger.log("INFO", message)
+
+def log_warning(message):
+    _logger.log("WARNING", message)
+
+def log_error(message, critical=False):
+    _logger.log("ERROR", message, include_traceback=True)
+    if critical:
+        try:
+            import system
+            system.ui.error("CRITICAL ERROR: " + message + "\n\nSee sync_debug.log for details.")
+        except:
+            pass
+
+# --- Utility Functions ---
 
 
 def calculate_hash(content):
@@ -21,8 +76,14 @@ def calculate_hash(content):
 
 
 def safe_str(value):
-    """Safely convert value to string"""
+    """Safely convert value to string, handling Unicode in Python 2.7"""
+    if value is None:
+        return ""
     try:
+        if sys.version_info[0] < 3:
+            if isinstance(value, unicode):
+                return value
+            return unicode(value)
         return str(value)
     except:
         return "N/A"
@@ -56,7 +117,8 @@ def load_base_dir():
         
         return base_dir, None
     except Exception as e:
-        return None, "Error reading BASE_DIR: " + safe_str(e)
+        log_error("Error reading BASE_DIR: " + safe_str(e))
+        return None, "Error reading BASE_DIR. See log for details."
 
 
 def load_metadata(base_dir):
@@ -73,7 +135,7 @@ def load_metadata(base_dir):
             with codecs.open(config_path, "r", "utf-8") as f:
                 metadata = json.load(f)
         except Exception as e:
-            print("Error reading _config.json: " + safe_str(e))
+            log_error("Error reading _config.json: " + safe_str(e))
     
     if not metadata and not os.path.exists(os.path.join(base_dir, "_metadata.csv")):
         return None
@@ -85,16 +147,25 @@ def load_metadata(base_dir):
         
     if os.path.exists(csv_path):
         try:
-            with codecs.open(csv_path, "r", "utf-8") as f:
-                lines = f.readlines()
-                if len(lines) > 1:
-                    # Skip header: GUID;Name;Path;LastModified;Type;Parent;ContentHash
-                    for line in lines[1:]:
-                        line = line.strip()
-                        if not line: continue
-                        parts = line.split(";")
-                        if len(parts) >= 7:
-                            guid, name, path, last_mod, obj_type, parent, content_hash = parts[:7]
+            # Python 2/3 compatible opening for CSV
+            if sys.version_info[0] < 3:
+                f = open(csv_path, 'rb')
+            else:
+                f = open(csv_path, 'r', encoding='utf-8', newline='')
+            
+            try:
+                reader = csv.reader(f, delimiter=';')
+                header = next(reader, None) # Skip header: GUID;Name;Path;LastModified;Type;Parent;ContentHash
+                
+                if header:
+                    for row in reader:
+                        if not row: continue
+                        if len(row) >= 7:
+                            # In Python 2, we need to decode manually
+                            if sys.version_info[0] < 3:
+                                row = [cell.decode('utf-8') for cell in row]
+                                
+                            guid, name, path, last_mod, obj_type, parent, content_hash = row[:7]
                             metadata["objects"][path] = {
                                 "guid": guid,
                                 "name": name,
@@ -103,8 +174,10 @@ def load_metadata(base_dir):
                                 "parent": parent if parent != "None" else None,
                                 "content_hash": content_hash
                             }
+            finally:
+                f.close()
         except Exception as e:
-            print("Error reading _metadata.csv: " + safe_str(e))
+            log_error("Error reading _metadata.csv: " + safe_str(e))
             
     return metadata
 
@@ -175,29 +248,45 @@ def save_metadata(base_dir, metadata):
             
         # 2. Save object metadata to CSV
         if "objects" in metadata:
-            with codecs.open(csv_tmp, "w", "utf-8") as f:
+            if sys.version_info[0] < 3:
+                f = open(csv_tmp, 'wb')
+            else:
+                f = open(csv_tmp, 'w', encoding='utf-8', newline='')
+            
+            try:
+                writer = csv.writer(f, delimiter=';', quoting=csv.QUOTE_MINIMAL)
                 # Header
-                f.write("GUID;Name;Path;LastModified;Type;Parent;ContentHash\n")
+                writer.writerow(["GUID", "Name", "Path", "LastModified", "Type", "Parent", "ContentHash"])
                 
                 # Sort objects by path for consistency
                 paths = sorted(metadata["objects"].keys())
                 for path in paths:
                     obj = metadata["objects"][path]
-                    guid = safe_str(obj.get("guid", ""))
-                    name = safe_str(obj.get("name", ""))
-                    last_mod = safe_str(obj.get("last_modified", ""))
-                    obj_type = safe_str(obj.get("type", ""))
-                    parent = safe_str(obj.get("parent", ""))
-                    content_hash = safe_str(obj.get("content_hash", ""))
+                    row = [
+                        safe_str(obj.get("guid", "")),
+                        safe_str(obj.get("name", "")),
+                        safe_str(path),
+                        safe_str(obj.get("last_modified", "")),
+                        safe_str(obj.get("type", "")),
+                        safe_str(obj.get("parent", "")),
+                        safe_str(obj.get("content_hash", ""))
+                    ]
                     
-                    line = ";".join([guid, name, path, last_mod, obj_type, parent, content_hash])
-                    f.write(line + "\n")
+                    # In Python 2, we need to encode manually
+                    if sys.version_info[0] < 3:
+                        # Use unicode check for IronPython/Python 2 compatibility
+                        unicode_type = unicode if sys.version_info[0] < 3 else str
+                        row = [cell.encode('utf-8') if isinstance(cell, unicode_type) else str(cell) for cell in row]
+                        
+                    writer.writerow(row)
+            finally:
+                f.close()
             
             _atomic_replace(csv_tmp, csv_path)
         
         return True
     except Exception as e:
-        print("Error saving split metadata: " + safe_str(e))
+        log_error("Error saving split metadata: " + safe_str(e))
         # Cleanup temp files if they exist
         for tmp_file in [config_tmp, csv_tmp]:
             if os.path.exists(tmp_file):

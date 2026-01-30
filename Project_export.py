@@ -20,7 +20,8 @@ import time
 from codesys_constants import TYPE_GUIDS, EXPORTABLE_TYPES, IMPL_MARKER, XML_TYPES
 from codesys_utils import (
     safe_str, clean_filename, load_base_dir, 
-    save_metadata, calculate_hash, format_st_content
+    save_metadata, calculate_hash, format_st_content,
+    log_info, log_warning, log_error
 )
 
 # Shared constants and utilities imported from modules
@@ -56,7 +57,7 @@ def get_object_path(obj, stop_at_application=True):
             current = parent
             
         except Exception as e:
-            print("Error building path: " + safe_str(e))
+            log_error("Error building path: " + safe_str(e))
             break
     
     return path_parts
@@ -133,7 +134,7 @@ def cleanup_orphaned_files(export_dir, current_objects):
         # Check files
         for f in files:
             # Skip reserved files
-            if f in ["_metadata.json", "_config.json", "_metadata.csv", "BASE_DIR"] or f.startswith("."):
+            if f in ["_metadata.json", "_config.json", "_metadata.csv", "BASE_DIR", "sync_debug.log"] or f.startswith("."):
                 continue
             
             # Only consider our export types to be safe
@@ -352,8 +353,6 @@ def export_project(export_dir):
                 # Remove parent POU from path since it's in filename
                 if path_parts and path_parts[-1] == parent_pou:
                     path_parts = path_parts[:-1]
-                if path_parts and path_parts[-1] == parent_pou:
-                    path_parts = path_parts[:-1]
             elif is_xml:
                 file_name = clean_name + ".xml"
             else:
@@ -409,7 +408,7 @@ def export_project(export_dir):
             exported_count += 1
             
         except Exception as e:
-            print("Error exporting " + safe_str(obj) + ": " + safe_str(e))
+            log_error("Error exporting " + safe_str(obj) + ": " + safe_str(e))
     
     # Cleanup orphaned files (files on disk not in current export)
     if not cleanup_orphaned_files(export_dir, metadata["objects"]):
@@ -428,6 +427,7 @@ def export_project(export_dir):
     print("Time elapsed: {:.2f} seconds".format(elapsed_time))
     print("Completed at: " + time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
     
+    log_info("Export complete! Exported: " + str(exported_count) + " files.")
     system.ui.info("Export complete!\n\nExported: " + str(exported_count) + " files\nLocation: " + export_dir + "\nTime elapsed: {:.2f} seconds".format(elapsed_time))
 
 
