@@ -5,7 +5,8 @@ Project_import.py - Import edited ST files back into CODESYS project
 Reads _metadata.json to match files to CODESYS objects by GUID, then updates
 the textual declaration and implementation from the ST files.
 
-Usage: Run from CODESYS IDE after exporting with Project_export.py and editing files
+Usage: Run from CODESYS IDE after setting sync directory with Project_directory.py
+ and editing files
 """
 import os
 import codecs
@@ -341,7 +342,7 @@ def import_project(import_dir):
         return
     
     print("=== Starting Project Import ===")
-    print("Import directory: [BASE_DIR]")
+    print("Import directory: " + import_dir)
     start_time = time.time()
     
     # Find Application container early

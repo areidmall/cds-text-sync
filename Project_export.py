@@ -11,7 +11,7 @@ Features:
 - Initializes autosync and sync_timeout fields for Project_AutoSync.py
 - Preserves consistent field order in metadata JSON
 
-Usage: Run from CODESYS IDE after setting BASE_DIR with Project_directory.py
+Usage: Run from CODESYS IDE after setting sync directory with Project_directory.py
 """
 import os
 import codecs
