@@ -18,7 +18,8 @@ from codesys_utils import (
     safe_str, parse_st_file, build_object_cache, 
     find_object_by_guid, find_object_by_name, load_base_dir,
     calculate_hash, save_metadata, load_metadata,
-    format_st_content, log_info, log_warning, log_error, MetadataLock
+    format_st_content, log_info, log_warning, log_error, MetadataLock,
+    load_libraries, extract_libraries_from_project
 )
 
 # Shared constants and utilities imported from modules
@@ -334,6 +335,69 @@ def cleanup_ide_orphans(import_dir, objects_meta, guid_map, name_map):
         return None 
 
 
+def sync_libraries(import_dir):
+    """
+    Check libraries in project against _libraries.csv and warn about differences.
+    Note: Automatic library updates are not reliable across all CODESYS versions.
+    """
+    libraries_file = load_libraries(import_dir)
+    if not libraries_file:
+        return
+        
+    print("  Checking project libraries...")
+    
+    # Get current project libraries
+    current_libs = extract_libraries_from_project(projects.primary)
+    
+    if not current_libs:
+        print("  Warning: Could not extract current library information")
+        return
+    
+    # Compare
+    missing_libs = []
+    mismatch_libs = []
+    
+    for lib_file in libraries_file:
+        found = False
+        for lib_proj in current_libs:
+            # Match by name or namespace to be robust
+            if lib_file["name"] == lib_proj["name"] or (lib_file["namespace"] != "N/A" and lib_file["namespace"] == lib_proj["namespace"]):
+                found = True
+                if lib_file["version"] != lib_proj["version"]:
+                    mismatch_libs.append((lib_file, lib_proj))
+                break
+        if not found:
+            missing_libs.append(lib_file)
+            
+    if not missing_libs and not mismatch_libs:
+        print("  All libraries match.")
+        return
+        
+    # Show status
+    message = "Library differences detected (Version Control):\n\n"
+    if missing_libs:
+        message += "Missing in CODESYS project:\n"
+        for lib in missing_libs:
+            message += "- " + lib["name"] + " (" + lib["version"] + ")\n"
+        message += "\n"
+        
+    if mismatch_libs:
+        message += "Version differences:\n"
+        for lib_file, lib_proj in mismatch_libs:
+            message += "- " + lib_file["name"] + ":\n    On disk: " + lib_file["version"] + "\n    In IDE:   " + lib_proj["version"] + "\n"
+            
+    message += "\nPlease update libraries manually via Library Manager.\n"
+    message += "Would you like to continue with import?"
+    
+    try:
+        result = system.ui.choose(message, ("Continue Import", "Cancel Import"))
+    except:
+        return
+        
+    if result[0] == 1: # Cancel
+        return "CANCEL"
+
+
 def import_project(import_dir):
     """Import ST files from folder structure back into CODESYS project"""
     
@@ -373,7 +437,7 @@ def import_project(import_dir):
     except:
         pass
     
-    with MetadataLock(import_dir):
+    with MetadataLock(import_dir, timeout=60):
         # Load metadata
         metadata = load_metadata(import_dir)
         if not metadata:
@@ -396,6 +460,11 @@ def import_project(import_dir):
         for path in deleted_from_ide:
             if path in objects_meta:
                 del objects_meta[path]
+        
+        # Sync libraries first
+        if sync_libraries(import_dir) == "CANCEL":
+            print("Import cancelled during library sync.")
+            return
                 
         # Track existing folders
         tracked_folders = set()

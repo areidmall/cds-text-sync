@@ -167,37 +167,68 @@ class MetadataLock:
     Combines threading lock for same-process safety and directory-based 
     lock for cross-process/script safety.
     """
-    def __init__(self, base_dir, timeout=10):
+    def __init__(self, base_dir, timeout=30):
+        self.base_dir = base_dir
         self.lock_path = os.path.join(base_dir, ".metadata.lock")
+        self.info_path = os.path.join(self.lock_path, "owner.info")
         self.timeout = timeout
         self.locked = False
 
+    def _get_owner_info(self):
+        """Get information about the script and PID holding the lock."""
+        try:
+            import __main__
+            script_name = os.path.basename(__main__.__file__) if hasattr(__main__, "__file__") else "Unknown script"
+        except:
+            script_name = "Unknown script"
+            
+        try:
+            import os
+            pid = os.getpid()
+        except:
+            pid = "Unknown PID"
+            
+        return "Script: %s, PID: %s" % (script_name, pid)
+
     def acquire(self):
         start = time.time()
+        owner_info = self._get_owner_info()
+        
         while time.time() - start < self.timeout:
             try:
                 # os.mkdir is atomic on Windows/Linux and fails if exists
                 os.mkdir(self.lock_path)
+                
+                # Write owner info
+                try:
+                    with open(self.info_path, "w") as f:
+                        f.write(owner_info)
+                except:
+                    pass
+                    
                 self.locked = True
                 return True
             except OSError:
                 # Directory exists or other OS error
-                # We could check lock folder timestamp here to break stale locks
+                # Check for stale lock (older than 2 minutes)
                 try:
                     mtime = os.path.getmtime(self.lock_path)
-                    if time.time() - mtime > 300: # Stale after 5 minutes
-                        log_warning("Breaking stale metadata lock...")
-                        os.rmdir(self.lock_path)
+                    if time.time() - mtime > 120: # Stale after 2 minutes
+                        log_warning("Breaking stale metadata lock (older than 2 mins)...")
+                        self.release(force=True)
                         continue
                 except:
                     pass
-                time.sleep(0.5)
+                time.sleep(1.0)
         return False
 
-    def release(self):
-        if self.locked:
+    def release(self, force=False):
+        if self.locked or force:
             try:
-                os.rmdir(self.lock_path)
+                if os.path.exists(self.info_path):
+                    os.remove(self.info_path)
+                if os.path.exists(self.lock_path):
+                    os.rmdir(self.lock_path)
             except:
                 pass
             self.locked = False
@@ -205,9 +236,19 @@ class MetadataLock:
     def __enter__(self):
         _metadata_thread_lock.acquire()
         if not self.acquire():
+            # Try to read who owns it for better error message
+            owner = "Unknown"
+            try:
+                if os.path.exists(self.info_path):
+                    with open(self.info_path, "r") as f:
+                        owner = f.read().strip()
+            except:
+                pass
+                
             _metadata_thread_lock.release()
-            log_error("Metadata lock timeout")
-            raise Exception("Metadata lock timeout: Another sync operation is in progress.")
+            err_msg = "Metadata lock timeout. Current owner: %s. Please wait for the other operation to finish or delete the '.metadata.lock' folder in your sync directory if no operation is running." % owner
+            log_error(err_msg)
+            raise Exception(err_msg)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -405,11 +446,220 @@ def save_metadata(base_dir, metadata):
         return True
     except Exception as e:
         log_error("Error saving split metadata: " + safe_str(e))
-        # Cleanup temp files if they exist
         for tmp_file in [config_tmp, csv_tmp]:
             if os.path.exists(tmp_file):
                 try: os.remove(tmp_file)
                 except: pass
+        return False
+
+
+def extract_libraries_from_project(project):
+    """
+    Extract library info from all library managers in project.
+    Uses XML export to reliably get library details (name, version, company).
+    """
+    libraries = []
+    import tempfile
+    import re
+    
+    try:
+        # Find all library manager objects
+        all_objs = project.get_children(recursive=True)
+        lib_manager_type = TYPE_GUIDS.get("library_manager", "adb5cb65-8e1d-4a00-b70a-375ea27582f3")
+        managers = [obj for obj in all_objs if safe_str(obj.type) == lib_manager_type]
+        
+        for manager in managers:
+            try:
+                # Export Library Manager to XML to extract library information
+                temp_dir = tempfile.gettempdir()
+                xml_path = os.path.join(temp_dir, "libman_export_{0}.xml".format(safe_str(manager.guid)[:8]))
+                
+                if os.path.exists(xml_path):
+                    os.remove(xml_path)
+                
+                # Export to XML
+                project.export_native([manager], xml_path, recursive=True)
+                
+                if os.path.exists(xml_path):
+                    with codecs.open(xml_path, 'r', 'utf-8') as f:
+                        content = f.read()
+                    
+                    # Store raw matches to process after
+                    raw_libraries = []
+
+                    # Pattern 1: Placeholder Resolution (Key/Value)
+                    p1 = r'<Key>\s*<Single Type="string">([^<]+)</Single>\s*</Key>\s*<Value>\s*<Single Type="string">([^<]+)</Single>'
+                    matches1 = re.findall(p1, content, re.DOTALL)
+                    for lib_name, lib_info in matches1:
+                        raw_libraries.append((lib_name.strip(), lib_info.strip()))
+
+                    # Pattern 2: DefaultResolution or Name tags with full info string
+                    # Filter: ensure no '<' in properties to avoid XML junk
+                    p2 = r'<Single Name="(?:DefaultResolution|Name)" Type="string">([^<,]+,\s*[^<,\(]+\s*\([^<,\)]+\))</Single>'
+                    matches2 = re.findall(p2, content)
+                    for lib_info in matches2:
+                        name = lib_info.split(',')[0].strip()
+                        raw_libraries.append((name, lib_info.strip()))
+
+                    # Pattern 3: Any other text blocks following the library info format
+                    p3 = r'>([^<,]+,\s*[^<,\(]+\s*\([^<,\)]+\))<'
+                    matches3 = re.findall(p3, content)
+                    for lib_info in matches3:
+                        name = lib_info.split(',')[0].strip()
+                        raw_libraries.append((name, lib_info.strip()))
+                    
+                    for lib_name, lib_info in raw_libraries:
+                        # Skip if it looks like XML junk (contains brackets or too long)
+                        if '<' in lib_name or '>' in lib_name or len(lib_name) > 100:
+                            continue
+
+                        version = "Unknown"
+                        company = "Unknown"
+                        namespace = lib_name
+                        
+                        # Parse "LibName, Version (Company)" format
+                        info_match = re.search(r'([^,]+),\s*([^\(]+)\s*\(([^\)]+)\)', lib_info)
+                        if info_match:
+                            version = info_match.group(2).strip()
+                            company = info_match.group(3).strip()
+                        else:
+                            # Try simpler format: "LibName, Version"
+                            info_match = re.search(r'([^,]+),\s*([^<]+)', lib_info)
+                            if info_match:
+                                version = info_match.group(2).strip()
+                        
+                        libraries.append({
+                            "name": lib_name,
+                            "version": version,
+                            "company": company,
+                            "namespace": namespace,
+                            "is_placeholder": True
+                        })
+                    
+                    # Cleanup
+                    os.remove(xml_path)
+            except Exception as e:
+                log_warning("Could not extract libraries from manager: " + safe_str(e))
+                continue
+                
+    except Exception as e:
+        log_error("Error extracting libraries: " + safe_str(e))
+    
+    # Deduplicate libraries by name
+    # If multiple versions exist, prefer a specific version over '*'
+    unique_libs_dict = {}
+    for lib in libraries:
+        name = lib["name"]
+        version = lib["version"]
+        
+        if name not in unique_libs_dict:
+            unique_libs_dict[name] = lib
+        else:
+            # If existing is '*' and new is specific, replace it
+            current_version = unique_libs_dict[name]["version"]
+            if current_version == "*" and version != "*":
+                unique_libs_dict[name] = lib
+            # Also prefer longer version strings if both are specific
+            elif version != "*" and current_version != "*" and len(version) > len(current_version):
+                unique_libs_dict[name] = lib
+    
+    unique_libs = sorted(unique_libs_dict.values(), key=lambda x: x["name"])
+    return unique_libs
+
+
+def load_libraries(base_dir):
+    """
+    Load library list from _libraries.csv.
+    """
+    libraries = []
+    csv_path = os.path.join(base_dir, "_libraries.csv")
+    
+    if not os.path.exists(csv_path):
+        return libraries
+
+    try:
+        if sys.version_info[0] < 3:
+            f = open(csv_path, 'rb')
+        else:
+            f = open(csv_path, 'r', encoding='utf-8', newline='')
+        
+        try:
+            reader = csv.reader(f, delimiter=';')
+            header = next(reader, None) # Skip header
+            
+            if header:
+                for row in reader:
+                    if not row or len(row) < 5: continue
+                    
+                    if sys.version_info[0] < 3:
+                        row = [cell.decode('utf-8') for cell in row]
+                    
+                    name, version, company, namespace, is_placeholder = row[:5]
+                    libraries.append({
+                        "name": name,
+                        "version": version,
+                        "company": company,
+                        "namespace": namespace,
+                        "is_placeholder": is_placeholder.lower() == "true"
+                    })
+        finally:
+            f.close()
+    except Exception as e:
+        log_error("Error reading _libraries.csv: " + safe_str(e))
+        
+    return libraries
+
+
+def save_libraries(base_dir, libraries):
+    """
+    Save library list to _libraries.csv.
+    """
+    csv_path = os.path.join(base_dir, "_libraries.csv")
+    csv_tmp = csv_path + ".tmp"
+    
+    def _atomic_replace(src, dst):
+        if hasattr(os, 'replace'):
+            os.replace(src, dst)
+        else:
+            if os.path.exists(dst):
+                os.remove(dst)
+            os.rename(src, dst)
+
+    try:
+        if sys.version_info[0] < 3:
+            f = open(csv_tmp, 'wb')
+        else:
+            f = open(csv_tmp, 'w', encoding='utf-8', newline='')
+        
+        try:
+            writer = csv.writer(f, delimiter=';', quoting=csv.QUOTE_MINIMAL)
+            # Header
+            writer.writerow(["Name", "Version", "Company", "Namespace", "IsPlaceholder"])
+            
+            for lib in libraries:
+                row = [
+                    safe_str(lib.get("name", "")),
+                    safe_str(lib.get("version", "")),
+                    safe_str(lib.get("company", "")),
+                    safe_str(lib.get("namespace", "")),
+                    safe_str(lib.get("is_placeholder", "False"))
+                ]
+                
+                if sys.version_info[0] < 3:
+                    unicode_type = unicode if sys.version_info[0] < 3 else str
+                    row = [cell.encode('utf-8') if isinstance(cell, unicode_type) else str(cell) for cell in row]
+                
+                writer.writerow(row)
+        finally:
+            f.close()
+        
+        _atomic_replace(csv_tmp, csv_path)
+        return True
+    except Exception as e:
+        log_error("Error saving _libraries.csv: " + safe_str(e))
+        if os.path.exists(csv_tmp):
+            try: os.remove(csv_tmp)
+            except: pass
         return False
 
 

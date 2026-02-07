@@ -19,9 +19,10 @@ import json
 import time
 from codesys_constants import TYPE_GUIDS, EXPORTABLE_TYPES, IMPL_MARKER, XML_TYPES
 from codesys_utils import (
-    safe_str, clean_filename, load_base_dir, 
+    safe_str, clean_filename, load_base_dir,
     save_metadata, calculate_hash, format_st_content,
-    log_info, log_warning, log_error, MetadataLock
+    log_info, log_warning, log_error, MetadataLock,
+    save_libraries, extract_libraries_from_project
 )
 
 # Shared constants and utilities imported from modules
@@ -435,12 +436,20 @@ def export_project(export_dir):
     method_count = sum(1 for obj in metadata["objects"].values() if obj.get("type") == TYPE_GUIDS["method"])
     print("DEBUG: Before saving - Total objects: " + str(len(metadata["objects"])) + ", Methods: " + str(method_count))
     
-    # Write metadata file with consistent field order
-    with MetadataLock(export_dir):
+    # Write metadata file with consistent field order (60s timeout for large projects)
+    with MetadataLock(export_dir, timeout=60):
         if save_metadata(export_dir, metadata):
             print("Created: _config.json and _metadata.csv")
         else:
             print("Error writing metadata")
+            
+        # Add library export
+        libraries = extract_libraries_from_project(projects.primary)
+        if libraries:
+            if save_libraries(export_dir, libraries):
+                print("Created: _libraries.csv (" + str(len(libraries)) + " libraries)")
+            else:
+                print("Error writing _libraries.csv")
     
     print("=== Export Complete ===")
     elapsed_time = time.time() - start_time

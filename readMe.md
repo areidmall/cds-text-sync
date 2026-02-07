@@ -71,6 +71,7 @@ Exports the current CODESYS project to the selected directory.
 - Generates `_config.json` and `_metadata.csv` files with project info, sync settings, and object mappings.
 - **Safety Check**: Warns if exporting to a directory containing a different project's files.
 - **Orphan Cleanup**: Detects and offers to delete files on disk that no longer exist in the CODESYS project.
+- **Library Export**: Saves all project libraries and their versions to `_libraries.csv` for version control.
 - **CRITICAL**: Do not delete metadata files, as they are required for importing.
 
 #### 3. `Project_import.py`
@@ -80,6 +81,7 @@ Reads the `.st` files in your sync directory and updates the CODESYS project.
 - **Child Objects**: Supports creating Methods, Actions, and Properties (e.g., `MyPOU.MyAction.st`).
 - **Warning**: This will overwrite the code in your open CODESYS project. Always have a backup!
 - **Sync Deletions**: If you delete a file on disk, the importer will offer to delete the corresponding object in CODESYS.
+- **Library Sync**: Detects missing libraries or version mismatches against `_libraries.csv` and offers to update the CODESYS project.
 
 #### 3. `Project_parameters.py`
 Configure sync parameters for the **current project**.
@@ -120,9 +122,37 @@ Structured Text files are perfect for editing, refactoring, and AI assistance. T
 
 - **⚠️ BETA STATUS**: This software is in active development. **Always backup your project** before using any script.
 - **Metadata**: Project settings are stored in `_config.json` and object mappings in `_metadata.csv`. Don't modify the CSV file manually.
+- **Library Tracking**: Library versions are stored in `_libraries.csv` for version control.
+- **CRITICAL**: `_libraries.csv` is a machine-generated file. **DO NOT MODIFY IT MANUALLY**. Any manual changes will be overwritten during the next export.
+- **Library Sync Limitations**: The import script detects version mismatches. If the script reports differences, you MUST update libraries manually via the CODESYS Library Manager to match the versions in the CSV.
 - **Metadata Versioning**: If you update these scripts, you MUST perform a fresh **Export from IDE** to regenerate the metadata. It is recommended to clean the export folder first.
 - **Backups**: Always save a `.project` backup before running an import.
 - **Creating New Blocks**: You can now create new `.st` files and folders directly in your OS. The import script will automatically create the corresponding objects (POUs, GVLs, Folders) in CODESYS.
+
+---
+
+## 📚 Library Version Control
+
+The `_libraries.csv` file tracks all library dependencies and their versions. This enables:
+- **Version consistency** across different project instances
+- **Git-based tracking** of library changes
+- **Automatic detection** of version mismatches during import
+
+### File Format
+
+```csv
+Name;Version;Company;Namespace;IsPlaceholder
+Standard;3.5.18.0;System;Standard;True
+FloatingPointUtils;4.0.0.0;System;FloatingPointUtils;True
+SM3_Basic;4.20.0.0;CODESYS;SM3_Basic;True
+```
+
+### How It Works
+
+1. **Export**: `Project_export.py` extracts current library versions (preferring manually selected versions over wildcards) and saves them to `_libraries.csv`.
+2. **Version Control**: Commit `_libraries.csv` to Git to track dependency changes.
+3. **Import**: `Project_import.py` compares the CSV with the IDE state and warns about missing or mismatched versions.
+4. **Manual Sync**: If warned, open Library Manager and update libraries to the specific versions listed in the CSV.
 
 ---
 
