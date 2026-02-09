@@ -37,6 +37,14 @@ def set_base_directory():
         try:
             props = info.values if hasattr(info, "values") else info
             props["cds-sync-folder"] = selected_path
+            
+            # Save current PC name to detect project transfers
+            try:
+                import socket
+                props["cds-sync-pc"] = socket.gethostname()
+            except:
+                pass
+                
             print("Success: Project sync directory updated to: " + selected_path)
             system.ui.info("Sync directory saved to Project Information > Properties.")
         except Exception as e:

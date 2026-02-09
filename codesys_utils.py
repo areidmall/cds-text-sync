@@ -155,10 +155,54 @@ def set_project_prop(key, value):
 def load_base_dir():
     """Load base directory strictly from the project property 'cds-sync-folder'."""
     base_dir = get_project_prop("cds-sync-folder")
+    if not base_dir:
+        return None, "Project sync directory not set!\nPlease run 'Project_directory.py' or add 'cds-sync-folder' property in Project Information > Properties."
+    
+    # Check for PC mismatch to handle projects shared between colleagues
+    sync_pc = get_project_prop("cds-sync-pc")
+    try:
+        import socket
+        current_pc = socket.gethostname()
+        log_info("PC Check: Current PC='%s', Sync PC='%s'" % (safe_str(current_pc), safe_str(sync_pc)))
+        
+        if sync_pc and current_pc and safe_str(sync_pc) != safe_str(current_pc):
+            message = "Computer Mismatch Detected!\n\n"
+            message += "This project was last synced on: " + safe_str(sync_pc) + "\n"
+            message += "Current computer: " + safe_str(current_pc) + "\n\n"
+            message += "The saved sync path may be invalid for this machine:\n"
+            message += safe_str(base_dir) + "\n\n"
+            message += "Would you like to re-configure the sync folder for this PC?"
+            
+            # Try to find 'system' object for UI
+            sys_ui = None
+            try:
+                if "system" in globals(): sys_ui = globals()["system"].ui
+                else: 
+                    import __main__
+                    if hasattr(__main__, "system"): sys_ui = __main__.system.ui
+            except: pass
+            
+            if sys_ui:
+                res = sys_ui.choose(message, ("Yes, Re-configure", "No, Keep Current", "Cancel Operation"))
+                if res and res[0] == 0:
+                    try:
+                        import Project_directory
+                        Project_directory.set_base_directory()
+                        base_dir = get_project_prop("cds-sync-folder")
+                    except Exception as e:
+                        log_warning("Could not launch Project_directory: " + safe_str(e))
+                        return None, "Please run 'Project_directory.py' manually to re-configure sync."
+                elif res and res[0] == 2:
+                    return None, "Operation cancelled by user."
+            else:
+                log_warning("Computer mismatch detected ('%s' vs '%s') but UI (system.ui) is not available." % (safe_str(sync_pc), safe_str(current_pc)))
+    except Exception as e:
+        log_warning("Error during PC mismatch check: " + safe_str(e))
+
     if base_dir and os.path.exists(base_dir):
         return base_dir, None
     
-    return None, "Project sync directory not set!\nPlease run 'Project_directory.py' or add 'cds-sync-folder' property in Project Information > Properties."
+    return None, "Project sync directory not found: " + str(base_dir) + "\nPlease run 'Project_directory.py' to update it."
 
 
 class MetadataLock:

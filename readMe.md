@@ -6,6 +6,7 @@
 > **⚠️ BETA SOFTWARE - USE WITH CAUTION ⚠️**
 >
 > This product is **NOT YET RELEASED** and is currently in active development.
+>
 > - Features may be incomplete or unstable
 > - Breaking changes may occur without notice
 > - **ALWAYS backup your CODESYS project before using these scripts**
@@ -17,6 +18,7 @@
 This repository contains a set of Python scripts for **CODESYS** that facilitate two modern Git-based workflows:
 
 ### 2. ⚡ External Editing & Sync (The "Developer" Workflow)
+
 - **Goal**: Edit code using modern external tools (VS Code, Copilot/LLMs) and sync changes back to CODESYS.
 - **Method**: Exports logic (POUs, GVLs, DUTs) to clean **Structured Text (.st)** files.
 - **Benefit**: You can refactor code, use AI assistants, or mass-edit variables externally. The `Project_import.py` script then seamlessly updates your open CODESYS project with the new logic.
@@ -34,6 +36,7 @@ This repository contains a set of Python scripts for **CODESYS** that facilitate
 - **Reversible Sync**: Round-trip editing for Structured Text files.
 - **Safety**: Built-in checks to prevent overwriting the wrong project.
 - **Bi-directional Deletion**: Keep your file system and CODESYS project in sync by removing orphaned files or objects.
+- **Computer Mismatch Detection**: Prevents sync errors when projects are shared between different machines by validating the computer name.
 
 ---
 
@@ -60,13 +63,17 @@ This repository contains a set of Python scripts for **CODESYS** that facilitate
 ### Core Scripts
 
 #### 1. `Project_directory.py`
-**The First Step.** Run this to select the folder where the project sync will take place. 
+
+**The First Step.** Run this to select the folder where the project sync will take place.
+
 - Requires an open project.
-- Saves the path strictly to **Project Information > Properties** (`cds-sync-folder`).
-- This binds the sync folder to the specific CODESYS project file.
+- Saves the path (`cds-sync-folder`) and current machine name (`cds-sync-pc`) strictly to **Project Information > Properties**.
+- This binds the sync folder and the specific computer to the CODESYS project file to detect transfers.
 
 #### 2. `Project_export.py`
+
 Exports the current CODESYS project to the selected directory.
+
 - Creates `.st` files for all POUs, Methods, Actions, Properties, GVLs, and DUTs.
 - Generates `_config.json` and `_metadata.csv` files with project info, sync settings, and object mappings.
 - **Safety Check**: Warns if exporting to a directory containing a different project's files.
@@ -75,7 +82,9 @@ Exports the current CODESYS project to the selected directory.
 - **CRITICAL**: Do not delete metadata files, as they are required for importing.
 
 #### 3. `Project_import.py`
+
 Reads the `.st` files in your sync directory and updates the CODESYS project.
+
 - **Smart Update**: Matches existing files to CODESYS objects using metadata.
 - **New Creation**: Automatically creates new Folders, POUs, GVLs, and DUTs found in the file system.
 - **Child Objects**: Supports creating Methods, Actions, and Properties (e.g., `MyPOU.MyAction.st`).
@@ -84,25 +93,29 @@ Reads the `.st` files in your sync directory and updates the CODESYS project.
 - **Library Sync**: Detects missing libraries or version mismatches against `_libraries.csv` and offers to update the CODESYS project.
 
 #### 3. `Project_parameters.py`
+
 Configure sync parameters for the **current project**.
+
 - Allows changing the sync timeout and toggling XML export.
 - All changes are saved directly to **Project Information > Properties**.
 
 ### ⏳ Planned / Experimental (Currently Unavailable)
 
 #### `Project_ImportSync.py` (AutoSync)
+
 ⚠️ **Currently Unavailable / Experimental.**
 A script for automatic change monitoring. Version 1.1.0-beta is undergoing refactoring to align with the new project properties logic.
-
-
 
 ### Shared Modules
 
 #### `codesys_constants.py`
+
 Central repository for CODESYS type GUIDs and constants.
+
 - Defines `EXPORTABLE_TYPES` (ST) and `XML_TYPES` (Native XML)
 
 #### `codesys_utils.py`
+
 Common utility functions used across all scripts.
 
 ---
@@ -134,6 +147,7 @@ Structured Text files are perfect for editing, refactoring, and AI assistance. T
 ## 📚 Library Version Control
 
 The `_libraries.csv` file tracks all library dependencies and their versions. This enables:
+
 - **Version consistency** across different project instances
 - **Git-based tracking** of library changes
 - **Automatic detection** of version mismatches during import
@@ -158,9 +172,19 @@ SM3_Basic;4.20.0.0;CODESYS;SM3_Basic;True
 
 ## 📝 Changelog
 
+### Version 1.2.0-beta (2026-02-09)
+
+**Computer-Specific Validation:**
+
+- **PC Mismatch Detection**: All scripts now verify if the current computer matches the computer that last performed the sync (stored as `cds-sync-pc` property).
+- **Automatic Re-configuration**: If a project is transferred to a colleague's machine, the scripts will detect the change and offer to re-configure the sync folder immediately.
+- **Improved UI Robustness**: Enhanced logic for finding the CODESYS UI object, ensuring consistent dialog behavior across different execution contexts.
+- **Better Logging**: Detailed diagnostic information in `sync_debug.log` for troubleshooting sync folder and computer mismatches.
+
 ### Version 1.1.0-beta (2026-01-30)
 
 **Full Project Integration (Project-Bound Config):**
+
 - **Source of Truth**: All synchronization settings (`folder`, `timeout`, `xml_export`, `timestamp`) are now stored within the `.project` file under **Project Information > Properties** using the `cds-sync-` prefix.
 - **Portability**: Sync settings are preserved when the project file is moved to another computer.
 - **Legacy Cleanup**: Removed dependence on the global `BASE_DIR` file and local `_config.json` as the sole source of settings.
@@ -170,6 +194,7 @@ SM3_Basic;4.20.0.0;CODESYS;SM3_Basic;True
 ### Version 1.0.0-beta (2026-01-30)
 
 **Reliability & Performance Milestone:**
+
 - **Dynamic Parent Resolution**: Newly created child objects (Methods, Actions, Properties) now correctly identify and link to their parents even when created in the same import session.
 - **Folder Path Integrity**: Fixed bug where new objects sometimes defaulted to the root; they now strictly follow the folder structure defined in the file system.
 - **CSV Metadata Engine**: Switched to a CSV-backed metadata system for significantly faster data access and zero corruption risk from semicolons or special characters.
@@ -178,6 +203,7 @@ SM3_Basic;4.20.0.0;CODESYS;SM3_Basic;True
 ### Version 0.9.9-beta (2026-01-29)
 
 **Major Storage Update:**
+
 - **Split Metadata**: Replaced `_metadata.json` with `_config.json` (JSON) and `_metadata.csv` (CSV) for better performance and scalability.
 - **Improved Hashing**: Unified ST content formatting ensures consistent hashes regardless of trailing whitespace.
 - **Enhanced Debug Info**: Detailed import/export statistics and progress tracking in the CODESYS console.
@@ -186,6 +212,7 @@ SM3_Basic;4.20.0.0;CODESYS;SM3_Basic;True
 ### Version 0.9.8-beta (2026-01-29)
 
 **New Features & Improvements:**
+
 - **Orphan Cleanup (Export)**: `Project_export.py` now identifies files in the export directory that are no longer part of the CODESYS project and offers to delete them.
 - **Deletion Sync (Import)**: `Project_import.py` now detects when files have been removed from disk and offers to delete the matching objects from the CODESYS IDE.
 - **Empty Folder Management**: Automatic cleanup of empty directories during the export process.
@@ -193,6 +220,7 @@ SM3_Basic;4.20.0.0;CODESYS;SM3_Basic;True
 ### Version 0.9.7-beta (2026-01-20)
 
 **New Features & Improvements:**
+
 - **Function Return Types**: The import script now intelligently parses `FUNCTION` declarations to determine return types (including custom DUTs) and creates them correctly.
 - **Property Accessors**: Added support for `Get.st` and `Set.st` files, ensuring they are correctly associated with their parent Properties.
 - **Robust Type Detection**: Improved parsing logic to ignore comments and pragmas when determining object types, fixing issues with file headers.
@@ -201,6 +229,7 @@ SM3_Basic;4.20.0.0;CODESYS;SM3_Basic;True
 ### Version 0.9.6-beta (2026-01-20)
 
 **New Features:**
+
 - **Full Folder Support**: The importer now creates new folder structures (nested directories) to match your file system.
 - **New Object Creation**: You can create `.st` files externally, and they will be imported as new POUs, GVLs, or DUTs.
 - **Child Object Support**: Methods, Actions, and Properties (e.g., `Parent.Child.st`) are now correctly identified and created under their parent POU.
@@ -209,12 +238,14 @@ SM3_Basic;4.20.0.0;CODESYS;SM3_Basic;True
 ### Version 0.9.2-beta (2026-01-20)
 
 **Major Refactoring:**
+
 - Extracted common code into shared modules (`codesys_constants.py` and `codesys_utils.py`)
 - Reduced code duplication by ~300 lines across 5 scripts
 - Centralized CODESYS type GUIDs and constants
 - Improved maintainability and consistency
 
 **Bug Fixes:**
+
 - **CRITICAL FIX**: Fixed `build_object_cache()` not finding objects when called from imported modules
   - Issue: Imported modules don't have access to CODESYS global variables (`projects`)
   - Solution: Modified function to accept project as parameter
@@ -222,10 +253,10 @@ SM3_Basic;4.20.0.0;CODESYS;SM3_Basic;True
 - Updated all scripts to pass `projects.primary` to `build_object_cache()`
 
 **New Files:**
+
 - `codesys_constants.py` - Shared constants and type definitions
 - `codesys_utils.py` - Shared utility functions
 - `debug_metadata.py` - Diagnostic tool for troubleshooting
-
 
 ---
 
