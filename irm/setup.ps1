@@ -1,7 +1,7 @@
 # Set encoding to UTF8 for correct character display
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-$repoUrl = "https://github.com/ArthurkaX/cds-text-sync.git"
+$repoUrl = "https://github.com/areidmall/cds-text-sync.git"
 $targetBaseDir = Join-Path $env:LOCALAPPDATA "CODESYS\ScriptDir"
 $repoName = "cds-text-sync"
 $fullPath = Join-Path $targetBaseDir $repoName
