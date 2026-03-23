@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+### Version 1.6.6 (2026-03-18)
+
+**Resource Analysis UI Enhancement:**
+
+- **Interactive Results Dialog**: `Project_resources.py` now displays results in a modern Windows Forms dialog instead of console output.
+- **Sortable Data Grid**: Click column headers to sort by Object Name, Type, Size, or Category.
+- **Full Object List**: Shows all analyzed objects with scrolling support (previously limited to top 30).
+- **Summary Panel**: Displays Total Code, Total XML, and Object count at the bottom.
+- **Fallback Support**: Console output still works if UI components are unavailable.
+
+---
+
+### Version 1.6.5 (2026-03-17)
+
+**Interface Export Support:**
+
+- **Interface Objects**: Added full support for exporting and importing `INTERFACE` objects with their `EXTENDS` clauses preserved.
+- **Interface Methods**: Interface methods/properties now export as flat files (`InterfaceName.Method.st`) matching the existing FB pattern.
+- **Native XML Fallback**: Added `export_interface_declaration()` function that extracts interface declarations via native XML export when `textual_declaration` is unavailable.
+- **Updated Type GUIDs**: Corrected interface type GUID to `6654496c-404d-479a-aad2-8551054e5f1e` and added `itf_method` GUID for interface members.
+
+---
+
+### Version 1.6.4 (2026-03-12)
+
+**UI Cleanup & Module Security:**
+
+- **Hidden Internal Modules**: Renamed all `codesys_*.py` files to `.pyw` extension. This hides them from the CODESYS Script Engine menu, providing a cleaner user interface that only shows primary `Project_*.py` commands.
+- **Custom Module Loader**: Implemented a robust `_load_hidden_module` mechanism in all entry scripts to handle `.pyw` imports with proper dependency ordering.
+- **Deprecated Scripts Cleanup**: Removed several unused and debug scripts (`debug_metadata.py`, `Project_Daemon.py`) to streamline the repository.
+
+---
+
 ### Version 1.6.3 (2026-03-07)
 
 **Version Tracking & Compatibility Detection:**
