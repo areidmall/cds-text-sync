@@ -1,6 +1,6 @@
 # cds-text-sync
 
-**Version**: `1.6.3`
+**Version**: `1.6.6`
 
 > [!IMPORTANT]
 > **Disclaimer**: This is a third-party tool. It is NOT an official product of CODESYS Group and is not affiliated with, sponsored by, or endorsed by CODESYS Group. This tool is provided "as is" and is not a replacement for official CODESYS products.
@@ -145,12 +145,7 @@ Updates the CODESYS project from the files on disk.
 - **Safety Backup**: If enabled, creates a timestamped project backup (`YYYYMMDD_HHMMSS_ProjectName.project.bak`) before modifying any code in the `.project/` folder.
 - **Binary Sync**: If "Backup .project binary" is enabled, it **automatically saves** the project after import and updates the binary backup, ensuring Git consistency.
 
-### 5. `Project_Daemon.py` (Background Service)
-
-> [!NOTE]
-> **Temporarily Disabled**: This module is currently undergoing maintenance and is disabled in version 1.6.
-
-### 6. `Project_compare.py` (Object Comparison)
+### 5. `Project_compare.py` (Object Comparison)
 
 **Identify differences between IDE and Disk.** Compares the objects in your CODESYS project with the exported files on disk using the new direct-comparison engine.
 
@@ -165,12 +160,22 @@ Updates the CODESYS project from the files on disk.
   - You can then open these files in your favorite diff tool.
 - **Clean Run**: The `compare.log` file is recreated every time you run the script, ensuring you only see the latest results.
 
-### 7. `Project_discover.py` (Diagnostic Tool)
+### 6. `Project_discover.py` (Diagnostic Tool)
 
 **Diagnostic tool for project structure.** Maps your CODESYS project tree and helps identify objects that might not be fully supported by the sync engine yet.
 
 - **Validation**: If you run this on a project, check `sync_debug.log` to see a full tree of discovered objects and their types.
 - **Debugging**: Highlights "Unknown" types with their GUIDs, making it easy to report unsupported blocks.
+
+### 7. `Project_resources.py` (Size Analysis)
+
+**Analyze project objects by size/complexity.** Helps identify "code bloat" by measuring source code length and XML export size for graphical objects.
+
+![Resource Analysis](img/Project_resources.png)
+
+- **Interactive Grid**: Results displayed in a sortable dialog showing Object Name, Type, Size, and Category (Code/XML).
+- **Identify Bloat**: Quickly find large visualizations, complex POUs, or oversized configurations.
+- **Summary Stats**: Shows total code volume, XML volume, and object count.
 
 ---
 
