@@ -45,8 +45,9 @@ This repository contains a set of Python scripts for **CODESYS** that facilitate
 
    _(Note: You may need to create the `CODESYS`, `ScriptDir` folder manually if it doesn't exist)_.
 
-   _(Note: `.pyw` files will not appear as scripts but contain code the scripts depend on. If you're intrested [docs.python.org](https://docs.python.org/2/using/windows.html#executing-scripts) explain what they are intended for. CODESYS ignores them as scripts)_.
    _(Note: When upgrading you may need to remove the previous cds-text-sync files if they have been renamed / removed. This might be the cause of an error)_.
+
+   _(Note: At version `1.6.4` `.pyw` files were added. CODESYS ignores them as scripts. They are modules the scripts depend on. If you're intrested [docs.python.org](https://docs.python.org/2/using/windows.html#executing-scripts) explains their original intended use.)_.
 
 ### Method 2: Quick PowerShell Setup (Recommended)
 
