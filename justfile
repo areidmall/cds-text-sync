@@ -8,8 +8,12 @@ scriptdir18 :=  "c:/Program Files/CODESYS 3.5.18.0/CODESYS/ScriptDir/"
 
 # Powershell script to install the scripts in script dir
 install:
+    Push-Location {{scriptdir}}; \
+    ls; \
+    rm Project_*.py
     ls *.py | foreach { copy $_ -Destination {{scriptdir}} -Force }
-    ls *.py | foreach { copy $_ -Destination "{{scriptdir18}}" -Force }
+    # Don't have rights to run this
+    @# ls *.py | foreach { copy $_ -Destination "{{scriptdir18}}" -Force } 
 
 pull-upstream:
     git fetch upstream 
