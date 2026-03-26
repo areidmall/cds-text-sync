@@ -12,7 +12,8 @@ install:
     ls; \
     rm Project_*.py
     ls *.py | foreach { copy $_ -Destination {{scriptdir}} -Force }
-    # Don't have rights to run this
+    ls *.pyw | foreach { copy $_ -Destination {{scriptdir}} -Force }
+    @# Don't have rights to run this
     @# ls *.py | foreach { copy $_ -Destination "{{scriptdir18}}" -Force } 
 
 pull-upstream:
