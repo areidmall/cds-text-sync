@@ -4,7 +4,14 @@
 
 set shell := ["powershell.exe", "-c"]
 scriptdir :=  "~/AppData/Local/CODESYS/ScriptDir/"
+scriptdir18 :=  "c:/Program Files/CODESYS 3.5.18.0/CODESYS/ScriptDir/"
 
 # Powershell script to install the scripts in script dir
 install:
     ls *.py | foreach { copy $_ -Destination {{scriptdir}} -Force }
+    ls *.py | foreach { copy $_ -Destination "{{scriptdir18}}" -Force }
+
+pull-upstream:
+    git fetch upstream 
+    git checkout main
+    git merge upstream/main
