@@ -38,12 +38,14 @@ This repository contains a set of Python scripts for **CODESYS** that facilitate
 
 ### Method 1: Manual Copy
 
-1. **Copy Files**: Copy all `.py` files to the CODESYS scripts directory. Depending on your software and setup preference, use one of the following paths:
+1. **Copy Files**: Copy all `.py` and `.pyw` files to the CODESYS scripts directory. Depending on your software and setup preference, use one of the following paths:
    - **Standard (User Profile)**: `C:\Users\<YourUsername>\AppData\Local\CODESYS\ScriptDir\`
    - **Standard CODESYS (Manual Setup)**: `C:\Program Files\CODESYS 3.5.18.40\CODESYS\ScriptDir\`
    - **Delta Industrial Automation (DIAStudio)**: `C:\Program Files\Delta Industrial Automation\DIAStudio\DIADesigner-AX 1.9\CODESYS\ScriptDir`
 
    _(Note: You may need to create the `CODESYS`, `ScriptDir` folder manually if it doesn't exist)_.
+
+   _(Note: `.pyw` files will not appear as scripts but contain code the scripts depend on. If you're intrested [docs.python.org](https://docs.python.org/2/using/windows.html#executing-scripts) explain what they are intended for. CODESYS ignores them as scripts)_.
 
 ### Method 2: Quick PowerShell Setup (Recommended)
 
