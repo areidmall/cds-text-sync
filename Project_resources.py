@@ -7,7 +7,6 @@ and XML export size for graphical objects.
 """
 import os
 import sys
-import imp
 import tempfile
 import codecs
 
@@ -26,23 +25,17 @@ try:
 except:
     HAS_UI = False
 
-# --- Hidden Module Loader ---
-def _load_hidden_module(name):
-    """Load a .pyw module from the script directory and register it in sys.modules."""
-    if name not in sys.modules:
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(script_dir, name + ".pyw")
-        if os.path.exists(path):
-            sys.modules[name] = imp.load_source(name, path)
+from cds_bootstrap import load_hidden_modules
 
-# Load shared core logic
-_load_hidden_module("codesys_constants")
-_load_hidden_module("codesys_utils")
-_load_hidden_module("codesys_managers")
+load_hidden_modules([
+    "codesys_constants",
+    "codesys_utils",
+    "codesys_managers",
+], script_file=__file__)
 
-from codesys_constants import TYPE_NAMES, TYPE_GUIDS, IMPLEMENTATION_TYPES
 from codesys_utils import safe_str, resolve_projects, format_st_content, format_property_content
 from codesys_managers import classify_object, export_object_content, collect_property_accessors
+from codesys_type_system import can_have_implementation_kind, semantic_kind_from_guid
 
 
 class ResourcesResultsForm(Form):
@@ -199,12 +192,15 @@ def get_size_metrics():
     count = 0
     for obj in all_objects:
         try:
-            effective_type, is_xml, should_skip = classify_object(obj)
-            if should_skip:
+            resolution = classify_object(obj)
+            if resolution.get("should_skip"):
                 continue
             
+            semantic_kind = resolution.get("semantic_kind", "")
+            is_xml = resolution.get("is_xml", False)
+            effective_type = resolution.get("effective_type", "")
             name = safe_str(obj.get_name())
-            type_label = TYPE_NAMES.get(effective_type, "Unknown")
+            type_label = semantic_kind or semantic_kind_from_guid(effective_type) or "Unknown"
             size = 0
             
             if is_xml:
@@ -212,11 +208,8 @@ def get_size_metrics():
                 tmp_path = os.path.join(tempfile.gettempdir(), "size_check.xml")
                 try:
                     # Recursive export for monolithic types to get true size
-                    monolithic_types = [
-                        TYPE_GUIDS["task_config"], TYPE_GUIDS["alarm_config"], 
-                        TYPE_GUIDS["visu_manager"], TYPE_GUIDS["softmotion_pool"]
-                    ]
-                    recursive = effective_type in monolithic_types
+                    monolithic_kinds = {"task_config", "alarm_config", "visu_manager", "softmotion_pool"}
+                    recursive = semantic_kind in monolithic_kinds
                     
                     proj.export_native([obj], tmp_path, recursive=recursive)
                     if os.path.exists(tmp_path):
@@ -227,7 +220,7 @@ def get_size_metrics():
                 total_xml_size += size
             else:
                 # Measure Source Code
-                if effective_type == TYPE_GUIDS["property"] and safe_str(obj.guid) in property_accessors:
+                if semantic_kind == "property" and safe_str(obj.guid) in property_accessors:
                     prop_data = property_accessors[safe_str(obj.guid)]
                     decl, _ = export_object_content(obj)
                     
@@ -245,7 +238,7 @@ def get_size_metrics():
                     size = len(content)
                 else:
                     decl, impl = export_object_content(obj)
-                    can_have_impl = effective_type in IMPLEMENTATION_TYPES
+                    can_have_impl = can_have_implementation_kind(semantic_kind)
                     content = format_st_content(decl, impl, can_have_impl)
                     size = len(content)
                 total_code_size += size
