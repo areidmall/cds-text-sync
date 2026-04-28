@@ -11,6 +11,7 @@ install:
     Push-Location {{scriptdir}}; \
     ls; \
     rm Project_*.py
+    rm codesys_*.pyw
     ls *.py | foreach { copy $_ -Destination {{scriptdir}} -Force }
     ls *.pyw | foreach { copy $_ -Destination {{scriptdir}} -Force }
     @# Don't have rights to run this
